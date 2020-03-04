@@ -1,21 +1,20 @@
 package lv.paulsnar.edu.dip107p.md02.db;
 
+import java.io.EOFException;
 import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.util.ArrayList;
 
 import lv.paulsnar.edu.dip107p.md02.util.ByteFormats;
 import lv.paulsnar.edu.dip107p.md02.util.ParseException;
-import lv.paulsnar.edu.dip107p.md02.util.SizedString;
 
 class ValueType {
   enum Kind {
-    NULL (0),
-    VARINT (1),
+    NULL (1),
     FALSE (2),
     TRUE (3),
     STRING (4),
-    SMALLINT (128);
+    VARINT (5);
     
     public int value;
     private Kind(int value) {
@@ -24,6 +23,9 @@ class ValueType {
   }
   public static ValueType readFrom(RandomAccessFile file) throws IOException, ParseException {
     int type = file.read();
+    if (type == -1) {
+      throw new EOFException();
+    }
     if (type == Kind.NULL.value) {
       return ValueType.NULL;
     } else if (type == Kind.FALSE.value) {
@@ -33,31 +35,18 @@ class ValueType {
     } else if (type == Kind.VARINT.value) {
       return new ValueType(ByteFormats.readVarint(file));
     } else if (type == Kind.STRING.value) {
-      SizedString string = ByteFormats.readString(file);
-      return new ValueType(string.string, string.size);
-    } else if ((type & Kind.SMALLINT.value) == Kind.SMALLINT.value) {
-      int sign = type & 1;
-      sign = (sign == 1) ? -1 : 1;
-      int value = (type & 0x7E) >> 1;
-      return new ValueType(sign * value);
+      return new ValueType(ByteFormats.readString(file));
     } else {
       throw new ParseException("Unknown ValueType identifier: " + type);
     }
   }
 
-  public static ValueType[] readFrom(RandomAccessFile file, int size)
+  public static ValueType[] readFrom(ValueType[] values, RandomAccessFile file)
       throws IOException, ParseException {
-    ArrayList<ValueType> list = new ArrayList<>();
-    int i;
-    for (i = 0; i < size; ) {
-      ValueType type = readFrom(file);
-      size += type.binarySize;
-      list.add(type);
+    for (int i = 0; i < values.length; i += 1) {
+      values[i] = readFrom(file);
     }
-    if (i > size) {
-      throw new ParseException("Malformed value type list: size exceeded by " + (i - size));
-    }
-    return (ValueType[]) list.toArray();
+    return values;
   }
   
   public static int sizeOf(ValueType type) {
@@ -65,7 +54,7 @@ class ValueType {
   }
   
   public static int sizeOf(String string) {
-    return ByteFormats.stringBinarySize(string) + 1;
+    return 1 + ByteFormats.stringBinarySize(string);
   }
   
   public static int sizeOf(boolean bool) {
@@ -73,11 +62,7 @@ class ValueType {
   }
   
   public static int sizeOf(long number) {
-    if (-64L <= number && number < 64L) {
-      return 1;
-    } else {
-      return 1 + ByteFormats.varintBinarySize(number);
-    }
+    return 1 + ByteFormats.varintBinarySize(number);
   }
   
   public static void writeTo(ValueType type, RandomAccessFile file)
@@ -120,26 +105,14 @@ class ValueType {
   
   private ValueType(long number) { 
     longValue = number;
-    if (-64L <= number && number < 64L) {
-      kind = Kind.SMALLINT;
-      binarySize = 1;
-    } else {
-      kind = Kind.VARINT;
-      binarySize = ByteFormats.varintBinarySize(number) + 1;
-    }
+    kind = Kind.VARINT;
+    binarySize = ByteFormats.varintBinarySize(number) + 1;
   }
   
   private ValueType(String string) {
-    this(string, 0);
-  }
-  private ValueType(String string, int binarySize) {
     stringValue = string;
     kind = Kind.STRING;
-    if (binarySize == 0) {
-      this.binarySize = ByteFormats.stringBinarySize(string) + 1;
-    } else {
-      this.binarySize = binarySize;
-    }
+    this.binarySize = 1 + ByteFormats.stringBinarySize(string);
   }
   
   public Kind getKind() {
@@ -154,7 +127,7 @@ class ValueType {
   }
   
   public long longValue() {
-    if (kind != Kind.VARINT && kind != Kind.SMALLINT) {
+    if (kind != Kind.VARINT) {
       throw new BadValueException("Value type is not an integer");
     }
     return longValue;
@@ -175,20 +148,12 @@ class ValueType {
   }
   
   public void writeTo(RandomAccessFile file) throws IOException, ParseException {
+    file.write(kind.value);
     if (kind == Kind.NULL || kind == Kind.FALSE || kind == Kind.TRUE) {
-      file.write(kind.value);
-    } else if (kind == Kind.SMALLINT) {
-      int value = kind.value;
-      value |= (int) (longValue & 0x3F) << 1;
-      if (value < 0) {
-        value |= 1;
-      }
-      file.write(value);
+      // noop
     } else if (kind == Kind.STRING) {
-      file.write(kind.value);
       ByteFormats.writeString(stringValue, file);
     } else if (kind == Kind.VARINT) {
-      file.write(kind.value);
       ByteFormats.writeVarint(longValue, file);
     } else {
       throw new RuntimeException(

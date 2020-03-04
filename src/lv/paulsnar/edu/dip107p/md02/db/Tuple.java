@@ -1,5 +1,6 @@
 package lv.paulsnar.edu.dip107p.md02.db;
 
+import java.io.EOFException;
 import java.io.IOException;
 import java.io.RandomAccessFile;
 
@@ -8,20 +9,29 @@ import lv.paulsnar.edu.dip107p.md02.util.ParseException;
 
 public class Tuple {
   public static Tuple readFrom(RandomAccessFile file) throws IOException, ParseException {
-    long offset = file.getFilePointer();
-    int size = ByteFormats.readU15(file);
-    ValueType[] values = ValueType.readFrom(file, size);
-    return new Tuple(offset, values);
+    try {
+      int size = (int) ByteFormats.readVarint(file);
+      int id = (int) ByteFormats.readVarint(file);
+      ValueType[] values = new ValueType[8];
+      ValueType.readFrom(values, file);
+      int trailer = file.read();
+      if (trailer != 0) {
+        throw new IOException("Malformed database file: expected null byte, got: " + trailer);
+      }
+      return new Tuple(id, values);
+    } catch (EOFException exc) {
+      return null;
+    }
   }
   
-  long offset;
-  public String authorSurname, authorName, bookTitle;
-  public boolean isInShelf;
-  public String holderId;
-  public int returnYear, returnMonth, returnDay;
+  public int id;
+  public String authorSurname = null, authorName = null, bookTitle = null;
+  public boolean isInShelf = false;
+  public String holderId = null;
+  public int returnYear = 0, returnMonth = 0, returnDay = 0;
   
-  private Tuple(long offset, ValueType[] tuple) {
-    this.offset = offset;
+  private Tuple(int id, ValueType[] tuple) {
+    this.id = id;
     try {
       authorSurname = tuple[0].stringValue();
       authorName = tuple[1].stringValue();
@@ -45,19 +55,23 @@ public class Tuple {
     }
   }
   
-  Tuple(long offset, String authorSurname, String authorName, String bookTitle) {
-    this.offset = offset;
+  public static final Tuple SCRUBBED = new Tuple(-1, null, null, null);
+  
+  public Tuple(int id) {
+    this.id = id;
+  }
+
+  public Tuple(int id, String authorSurname, String authorName, String bookTitle) {
+    this.id = id;
     this.authorSurname = authorSurname;
     this.authorName = authorName;
     this.bookTitle = bookTitle;
     isInShelf = true;
-    holderId = null;
-    returnYear = returnMonth = returnDay = 0;
   }
   
-  Tuple(long offset, String authorSurname, String authorName, String bookTitle, String holderId,
+  public Tuple(int id, String authorSurname, String authorName, String bookTitle, String holderId,
         int returnYear, int returnMonth, int returnDay) {
-    this(offset, authorSurname, authorName, bookTitle);
+    this(id, authorSurname, authorName, bookTitle);
     isInShelf = false;
     this.holderId = holderId;
     this.returnYear = returnYear;
@@ -65,17 +79,31 @@ public class Tuple {
     this.returnDay = returnDay;
   }
 
-  public void writeTo(RandomAccessFile file) throws IOException, ParseException {
-    int size = ValueType.sizeOf(authorSurname) + ValueType.sizeOf(authorName) +
-        ValueType.sizeOf(bookTitle) + ValueType.sizeOf(isInShelf);
+  int size() {
+    int size = ByteFormats.varintBinarySize((long) id) +
+        ValueType.sizeOf(authorSurname) +
+        ValueType.sizeOf(authorName) +
+        ValueType.sizeOf(bookTitle) +
+        ValueType.sizeOf(isInShelf);
     if (isInShelf) {
       size += 4 * ValueType.sizeOf(ValueType.NULL); 
     } else {
-      size += ValueType.sizeOf(holderId) + ValueType.sizeOf((long) returnYear) +
-          ValueType.sizeOf((long) returnMonth) + ValueType.sizeOf((long) returnDay);
+      size += ValueType.sizeOf(holderId) +
+          ValueType.sizeOf((long) returnYear) +
+          ValueType.sizeOf((long) returnMonth) +
+          ValueType.sizeOf((long) returnDay);
     }
-
-    ByteFormats.writeU15(size, file);
+    return size;
+  }
+  
+  int length() {
+    int size = size();
+    return size + ValueType.sizeOf((long) size);
+  }
+  
+  public void writeTo(RandomAccessFile file) throws IOException, ParseException {
+    ByteFormats.writeVarint((long) size(), file);
+    ByteFormats.writeVarint(id, file);
     ValueType.writeTo(authorSurname, file);
     ValueType.writeTo(authorName, file);
     ValueType.writeTo(bookTitle, file);
@@ -90,5 +118,6 @@ public class Tuple {
       ValueType.writeTo(returnMonth, file);
       ValueType.writeTo(returnDay, file);
     }
+    file.write(0);
   }
 }

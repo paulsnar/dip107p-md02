@@ -1,5 +1,6 @@
 package lv.paulsnar.edu.dip107p.md02.util;
 
+import java.io.EOFException;
 import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.util.Iterator;
@@ -46,6 +47,9 @@ public final class ByteFormats {
   public static int readU15(RandomAccessFile file) throws IOException, ParseException {
     int b1 = file.read(),
         b2 = file.read();
+    if (b1 == -1 || b2 == -1) {
+      throw new EOFException();
+    }
     if (b1 > 128) {
       throw new ParseException("Malformed U15: top bit was set");
     }
@@ -57,7 +61,7 @@ public final class ByteFormats {
       throw new ParseException("Value out of bounds for U15: " + value);
     }
     
-    file.write(0x80 | (value >> 8));
+    file.write(value >> 8);
     file.write(value & 0x7F);
   }
   
@@ -86,23 +90,23 @@ public final class ByteFormats {
   }
   
   public static int varintBinarySize(long value) {
-    if (-64L <= value && value < 64L) { // 6 bits
+    if (-64L < value && value < 64L && value != -1) { // 6 bits
       return 1;
-    } else if (-8192L <= value && value < 8192L) { // 7 + 6 bits
+    } else if (-8192L < value && value < 8192L) { // 7 + 6 bits
       return 2;
-    } else if (-1048576L <= value && value < 1048576L) { // 2*7 + 6 bits
+    } else if (-1048576L < value && value < 1048576L) { // 2*7 + 6 bits
       return 3;
-    } else if (-134217728L <= value && value < 134217728L) { // 3*7 + 6
+    } else if (-134217728L < value && value < 134217728L) { // 3*7 + 6
       return 4;
-    } else if (-17179869184L <= value && value < 17179869184L) { // 4*7 + 6
+    } else if (-17179869184L < value && value < 17179869184L) { // 4*7 + 6
       return 5;
-    } else if (-2199023255552L <= value && value < 2199023255552L) { // 5*7 + 6
+    } else if (-2199023255552L < value && value < 2199023255552L) { // 5*7 + 6
       return 6;
-    } else if (-281474976710656L <= value && value < 281474976710656L) { // 6*7 + 6
+    } else if (-281474976710656L < value && value < 281474976710656L) { // 6*7 + 6
       return 7;
-    } else if (-36028797018963968L <= value && value < 36028797018963968L) { // 7*7 + 6
+    } else if (-36028797018963968L < value && value < 36028797018963968L) { // 7*7 + 6
       return 8;
-    } else if (-4611686018427387904L <= value && value < 4611686018427387904L) { // 8*7 + 6
+    } else if (-4611686018427387904L < value && value < 4611686018427387904L) { // 8*7 + 6
       return 9;
     } else { // out of bounds
       return -1;
@@ -113,6 +117,9 @@ public final class ByteFormats {
     long value = 0L;
     for (int pieces = 0; pieces < 9; pieces += 1) {
       int piece = file.read();
+      if (piece == -1) {
+        throw new EOFException();
+      }
       if ((piece & 0x80) == 0) {
         value |= (piece & 0x7E) >> 1;
         int sign = piece & 1;
@@ -130,35 +137,48 @@ public final class ByteFormats {
   
   public static void writeVarint(long value, RandomAccessFile file)
       throws IOException, ParseException {
+    if (value == 0) {
+      file.write(1);
+      return;
+    }
     int size = varintBinarySize(value);
     if (size == -1) {
       throw new ParseException("Varint value out of bounds");
     }
     
     byte[] varint = new byte[size];
-    varint[size - 1] = (byte) ((value & 0x3F) << 1);
     if (value < 0) {
-      varint[size - 1] |= 1; 
+      varint[size - 1] = 1;
+      value *= -1;
     }
+    varint[size - 1] |= (byte) ((value & 0x3F) << 1);
     for (int i = 1; i < size; i += 1) {
       int shift = 7 * i - 1;
-      varint[i] = (byte) ((1 << 7) | ((value & (0x7F << shift)) >> shift));
+      varint[size - i - 1] = (byte) ((1 << 7) | ((value & (0x7F << shift)) >> shift));
     }
     file.write(varint);
   }
   
-  private static WeakHashMap<String, Integer> sizeCache = new WeakHashMap<>();
   public static int stringBinarySize(String string) {
-    if (sizeCache.containsKey(string)) {
-      return sizeCache.get(string).intValue();
+    int size = measureStringLength(string);
+    size += varintBinarySize((long) size);
+    return size;
+  }
+
+  private static WeakHashMap<String, Integer> stringLengthCache = new WeakHashMap<>();
+  public static int measureStringLength(String string) {
+    if (stringLengthCache.containsKey(string)) {
+      return stringLengthCache.get(string).intValue();
     }
-    
+
     /** @see https://www.fileformat.info/info/unicode/utf8.htm */
     int size = 0;
     Iterator<Integer> codePoints = string.codePoints().iterator();
     while (codePoints.hasNext()) {
       int sym = codePoints.next();
-      if (sym < 0x80) {
+      if (sym == 0) {
+        size += 2;
+      } else if (sym < 0x80) {
         size += 1;
       } else if (sym < 0x800) {
         size += 2;
@@ -170,19 +190,21 @@ public final class ByteFormats {
         throw new RuntimeException("Code point out of bounds: " + sym);
       }
     }
-    
-    sizeCache.put(string, size);
+    stringLengthCache.put(string, size);
     return size;
   }
   
-  public static SizedString readString(RandomAccessFile file) throws IOException, ParseException {
-    int size = readU15(file);
+  public static String readString(RandomAccessFile file) throws IOException, ParseException {
+    int size = (int) readVarint(file);
     StringBuilder str = new StringBuilder(size);
     
     int pos = 0;
     /** @see https://www.fileformat.info/info/unicode/utf8.htm */
     while (pos < size) {
       int piece = file.read();
+      if (piece == -1) {
+        throw new EOFException();
+      }
       if ((piece & 0x80) == 0) {
         pos += 1;
         str.append((char) piece);
@@ -246,11 +268,46 @@ public final class ByteFormats {
     }
     
     String string = str.toString();
-    sizeCache.put(string, size);
-    return new SizedString(size, string);
+    stringLengthCache.put(string, size);
+    return string;
   }
   
-  public static void writeString(String string, RandomAccessFile file) throws IOException {
+  public static void writeString(String string, RandomAccessFile file)
+      throws IOException, ParseException {
+    int size = measureStringLength(string);
+    writeVarint((long) size, file);
     
+    /** @see https://www.fileformat.info/info/unicode/utf8.htm */
+    byte[] buf = new byte[4];
+    Iterator<Integer> codePoints = string.codePoints().iterator();
+    while (codePoints.hasNext()) {
+      int sym = codePoints.next();
+      if (sym == 0) {
+        // overlong zero
+        buf[0] = (byte) 0xC0;
+        buf[1] = (byte) 0x80;
+        file.write(buf, 0, 2);
+      } else if (sym < 0x80) {
+        file.write(sym);
+      } else if (sym < 0x800){
+        buf[0] = (byte) (0xC0 | (sym & 0x7C0) >> 6);
+        buf[1] = (byte) (0x80 | (sym & 0x3F));
+        file.write(buf, 0, 2);
+      } else if (sym < 0x10000) {
+        buf[0] = (byte) (0xE0 | (sym & 0xF000) >> 12);
+        buf[1] = (byte) (0x80 | (sym & 0xFC0) >> 6);
+        buf[2] = (byte) (0x80 | (sym & 0x3F));
+        file.write(buf, 0, 3);
+      } else if (sym < 0x110000) {
+        buf[0] = (byte) (0xF0 | (sym & 0x1C0000) >> 18);
+        buf[1] = (byte) (0x80 | (sym & 0x3F000) >> 12);
+        buf[2] = (byte) (0x80 | (sym & 0xFC0) >> 6);
+        buf[3] = (byte) (0x80 | (sym & 0x3F));
+        file.write(buf, 0, 4);
+      } else {
+        // technically unreachable due to the same being tested for in stringBinarySize, but anyway:
+        throw new RuntimeException("Code point uot of bounds: " + sym);
+      }
+    }
   }
 }
