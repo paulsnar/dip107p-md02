@@ -1,0 +1,54 @@
+# Database file layout:
+* Global header
+* Indices header
+* Indices
+  * Index entries
+* Records header
+* Records
+
+All integers are big endian, the top bit is reserved.
+
+Global header: (magic char[8], index length u31, record length u31)
+
+Indices header: (index count u31)
+Index header: (term u15, count u15)
+Index item: (index term char[4], offset u31)
+  - the term is up to 4 bytes UTF-8 text
+
+Records header: (record count u31)
+Record: (binary length u15, typetuple*)
+
+Typetuple: (type u7, data byte[])
+  - type = 0 --> NULL
+  - type = 1 --> varint
+    - varint: [0a..bs] = (+/-s) [a..b] (6 bit)
+              [1a..b] [0c..ds] = (+/-s) [a..bc..d] (13 bit)
+              [1a..b] [1c..d] [0e..fs] = (+/-s) [a..bc..de..f] (20 bit)
+              max len: 9 bytes, 62 bit
+  - type = 2 --> FALSE
+  - type = 3 --> TRUE
+  - type = 4 --> string
+    - string: (binary length u15, symbols char[])
+  - type = 128 --> tinyint
+    - type => [1a..bs] = (+/-s) [a..b] (6 bit)
+
+# WAL log layout:
+* (magic char[8], rowcount u31, reserved u31)
+* rows
+
+WAL row:
+* (operation type u31, record length u31, start offset u31, sequence u31)
+* data
+
+Operation Type:
+  - OperTyp = 1 --> insert
+    - start offset points to offset where insertion occurs
+  - OperTyp = 2 --> edit
+    - start offset points to edited record start
+  - OperTyp = 3 --> delete
+    - same as edit
+
+Any WAL entries will modify all the record offsets respective to their actions.
+All Start offsets are relative to the record region start in the data file.
+
+If the WAL exists, the database file must be presumed to be open at the time.
