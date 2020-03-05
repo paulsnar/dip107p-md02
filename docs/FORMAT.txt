@@ -1,61 +1,105 @@
 # Database file layout:
-* Global header
-* Indices header
-* Records header
-* Records
-* Indices
-  * Index entries
+- page 0
+  - global header
+  - record skiptable
+  - index skiptable
+- freelist
+- record pages
+- index pages
 
 All non-varint integers are big endian and unsigned. The top bit is never set.
+A page refers to a 1024-byte (1k) region of the file. No content can overflow
+between pages, except for indices which can be partially split.
 
 Global header:
   - magic char[4]
-  - record length u31
-  - index length u31
-  - top sequence u31
+  - topmost sequence u31
+  - record page count u31
+  - index page count u31
+  - record skiptable qpage u15
+  - index skiptable qpage u15
+  - first freelist page u31
 
-Indices header: (index count u31)
-Index header: (term u15, count u15)
-Index item: (index term string, id u31)
+Semipages refer to 256-byte regions of the file, i.e., they need not be aligned
+on page boundaries.
 
-Record: (length varint, sequence varint, valuetype*, null char[1] == {0})
-The length doesn't include itself or the trailing null byte, only the sequence
-and valuetypes.
-If sequence == -1, the record is scrubbed. The rest of the record space is
-filled with 0x7F characters and should be ignored.
+# Skiptables
+Header: (length u15)
+Length is specified in qpages (256 byte chunks).
 
-Valuetype: (type u7, data byte[])
-  - type = 1 --> NULL
-  - type = 2 --> FALSE
-  - type = 3 --> TRUE
-  - type = 4 --> string
-    - string: (binary length varint, symbols char[])
-  - type = 5 --> varint
-    - varint: [0..01] = 0 (therefore -1 is encoded overlongly, in 2 bytes)
-              [0a..bs] = (+/-s) [a..b] (6 bit)
-              [1a..b] [0c..ds] = (+/-s) [a..bc..d] (13 bit)
-              [1a..b] [1c..d] [0e..fs] = (+/-s) [a..bc..de..f] (20 bit)
-              max len: 9 bytes, 62 bit
+Record skiptable entry: (id u31, page u31)
+Index skiptable entry: (term u15, peek u15, page u31)
 
-# WAL log layout:
-* (magic char[8], rowcount u31, reserved u31)
-* rows
+Skiptable entries are ordered by their data. The index peek is used for most
+significant bits or first four bytes of the term value in case the term spans
+multiple pages, but it shouldn't be repeated multiple times.
 
-WAL row:
-* (operation type u15, sequence u15)
-* data
+# Freelists
+Header: (count u15, reserved u15, previous u31, next u31)
+count concerns only the current page.
 
-Operation Type:
-  - OperTyp = 1 --> insert
-  - OperTyp = 2 --> edit
-  - OperTyp = 3 --> delete
+Contents: (page u31)*
+If a page is removed from the skiplist, a further entry should be written in its
+place, or the entry should be overwritten by zeroes. If a freelist page becomes
+empty, it should be itself freed up, and its successor linked to its parent.
 
-Any WAL entries will modify all the record offsets respective to their actions.
-All Start offsets are relative to the record region start in the data file.
+# Record page
+No header.
 
-If the WAL exists, either the database file is still open by another process or
-it should be replayed atop the current file because the changes weren't flushed
-to the database previously due to, e.g., application crashing. WAL itself should
-be persisted to the primary file as part of the application exit procedure.
+Record: (length u15, reserved u7, flags u7, id u31, valuetype*)
 
-For WAL with type 3, the data portion is just the deleted ID.
+The length doesn't include itself, but does include the reserved and id fields.
+
+Flags: RRRRRRRs lsb
+              |
+               \- the record is scrubbed and should be ignored
+
+
+If a significant proportion of the page is being taken up by scrubbed records,
+it should be vacuumed, e.g., its contents, sans the scrubbed records, copied to
+a free page and the page itself added to the freelist.
+
+# Index page
+Header:
+- term u15
+- count u15
+- previous u31
+- next u31
+
+Index entry:
+- term value (string or varint, depending on the term)
+- id u31
+
+# Varint
+
+00000001 --> 0
+0abcdefs --> (+/- s) [abcdef]
+1abcdefg 0hijklms --> (+/- s) [abcdefghijklm]
+1abcdefg 1hijklmn 0opqrts --> (+/- s) [abcdefghijklmnopqrt]
+(etc, up to 9 contiguous bytes or 62 bits of precision)
+
+# Valuetype:
+- type u7
+- data byte[]
+
+type == 1 --> NULL
+        2 --> FALSE
+        3 --> TRUE
+        4 --> string (binlength varint, symbols byte[])
+        5 --> varint
+
+# WAL log:
+- magic char[8]
+- rowcount u31
+- reserved u31
+- rows:
+  - operation type u15
+  - sequence u15
+  - record or id (varint)
+
+operation type == 1 --> insert
+                  2 --> edit
+                  3 --> delete
+
+For types 1 or 2, the row data is the record itself; for 3, it's the deleted
+ID.

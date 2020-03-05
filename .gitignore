@@ -1,3 +1,4 @@
 /bin/
 /database.wal
 /database.dat
+/database.dat-swp
