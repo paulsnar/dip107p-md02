@@ -10,7 +10,7 @@ public class Main {
     try (Database db = new Database(".")) {
       System.out.println("Opened database!");
       System.in.read();
-      
+
       Tuple t = new Tuple(0, "Skalbe", "Kārlis", "Kaķīša dzirnaviņas");
       db.appendEntry(t);
       System.out.println("Appended entry!");

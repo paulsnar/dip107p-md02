@@ -65,7 +65,7 @@ public class Database implements AutoCloseable {
     if ( ! Arrays.equals(header, 0, HEADER_MAGIC.length, HEADER_MAGIC, 0, HEADER_MAGIC.length)) {
       throw new IOException("Malformed database header (bad magic)");
     }
-    
+
     try {
       indicesLength = ByteFormats.getU31(header, 4);
       recordLength = ByteFormats.getU31(header, 8);
@@ -75,7 +75,7 @@ public class Database implements AutoCloseable {
     }
     return true;
   }
-  
+
   private void writeHeader() throws IOException {
     writeHeader(file);
   }
@@ -84,7 +84,7 @@ public class Database implements AutoCloseable {
     for (int i = 0; i < HEADER_MAGIC.length; i++) {
       header[i] = HEADER_MAGIC[i];
     }
-    
+
     try {
       ByteFormats.putU31(indicesLength, header, 4);
       ByteFormats.putU31(recordLength, header, 8);
@@ -92,11 +92,11 @@ public class Database implements AutoCloseable {
     } catch (ParseException exc) {
       throw new RuntimeException("Sizes out of bounds", exc);
     }
-    
+
     file.seek(0);
     file.write(header);
   }
-  
+
   private void rewrite() throws IOException {
     File tmpfile = new File(filePath + "-swp");
     RandomAccessFile target = new RandomAccessFile(tmpfile, "rw");
@@ -108,7 +108,7 @@ public class Database implements AutoCloseable {
     writeHeader(target);
 
     // TODO: write indices placeholder
-    
+
     HashMap<Integer, Tuple> inserts = new HashMap<>();    
     HashMap<Integer, Tuple> edits = new HashMap<>();
     HashMap<Integer, Object> deletes = new HashMap<>();
@@ -118,20 +118,20 @@ public class Database implements AutoCloseable {
       public void handleInsert(int sequence, Tuple tuple) {
         inserts.put(tuple.id, tuple);
       }
-      
+
       @Override
       public void handleEdit(int sequence, Tuple tuple) {
         edits.put(tuple.id, tuple);
       }
-      
+
       @Override
       public void handleDelete(int sequence, int id) {
         deletes.put(id, null);
       }
     });
-    
+
     file.seek(HEADER_SIZE + indicesLength);
-    
+
     Tuple row;
     while ((row = readEntry()) != null) {
       if (edits.containsKey(row.id)) {
@@ -145,7 +145,7 @@ public class Database implements AutoCloseable {
         throw new IOException("Row couldn't be serialized", exc);
       }
     }
-    
+
     Set<Integer> newIdSet = inserts.keySet();
     Integer[] newIds = new Integer[newIdSet.size()];
     newIds = newIdSet.toArray(newIds);
@@ -157,14 +157,14 @@ public class Database implements AutoCloseable {
         throw new IOException("Row couldn't be serialized", exc);
       }
     }
-    
+
     targetLock.close();
     tmpfile.renameTo(filePath);
     filePath = tmpfile;
     file.close();
     file = target;
   }
-  
+
   Tuple readEntry() throws IOException {
     try {
       return Tuple.readFrom(file);
@@ -172,7 +172,7 @@ public class Database implements AutoCloseable {
       throw new IOException("Malformed database file", exc);
     }
   }
-  
+
   public void appendEntry(Tuple tuple) throws IOException {
     topSequence += 1;
     tuple.id = topSequence;

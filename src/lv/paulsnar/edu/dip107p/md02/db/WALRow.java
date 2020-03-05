@@ -23,19 +23,19 @@ class WALRow {
         throw new IOException("Bad op value: " + optype);
       }
       sequence = ByteFormats.getU15(header, 2);
-      
+
       Tuple data = Tuple.readFrom(file);
       return new WALRow(op, sequence, data);
     } catch (ParseException exc) {
       throw new IOException("Malformed WAL row", exc);
     }
   }
-  
+
   enum Op {
     INSERT (1),
     EDIT (2),
     DELETE (3);
-    
+
     int value;
     private Op(int value) {
       this.value = value;
@@ -64,7 +64,7 @@ class WALRow {
     this.sequence = sequence;
     this.id = id;
   }
-  
+
   public static WALRow insert(int sequence, Tuple data) {
     return new WALRow(Op.INSERT, sequence, data);
   }

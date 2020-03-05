@@ -23,13 +23,13 @@ public class Tuple {
       return null;
     }
   }
-  
+
   public int id;
   public String authorSurname = null, authorName = null, bookTitle = null;
   public boolean isInShelf = false;
   public String holderId = null;
   public int returnYear = 0, returnMonth = 0, returnDay = 0;
-  
+
   private Tuple(int id, ValueType[] tuple) {
     this.id = id;
     try {
@@ -54,9 +54,9 @@ public class Tuple {
       throw new RuntimeException("Malformed tuple", exc);
     }
   }
-  
+
   public static final Tuple SCRUBBED = new Tuple(-1, null, null, null);
-  
+
   public Tuple(int id) {
     this.id = id;
   }
@@ -68,7 +68,7 @@ public class Tuple {
     this.bookTitle = bookTitle;
     isInShelf = true;
   }
-  
+
   public Tuple(int id, String authorSurname, String authorName, String bookTitle, String holderId,
         int returnYear, int returnMonth, int returnDay) {
     this(id, authorSurname, authorName, bookTitle);
@@ -86,7 +86,7 @@ public class Tuple {
         ValueType.sizeOf(bookTitle) +
         ValueType.sizeOf(isInShelf);
     if (isInShelf) {
-      size += 4 * ValueType.sizeOf(ValueType.NULL); 
+      size += 4 * ValueType.sizeOf(ValueType.NULL);
     } else {
       size += ValueType.sizeOf(holderId) +
           ValueType.sizeOf((long) returnYear) +
@@ -95,12 +95,12 @@ public class Tuple {
     }
     return size;
   }
-  
+
   int length() {
     int size = size();
     return size + ValueType.sizeOf((long) size);
   }
-  
+
   public void writeTo(RandomAccessFile file) throws IOException, ParseException {
     ByteFormats.writeVarint((long) size(), file);
     ByteFormats.writeVarint(id, file);

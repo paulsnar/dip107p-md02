@@ -23,7 +23,7 @@ public final class ByteFormats {
     }
     return value;
   }
-  
+
   public static int getU15(byte[] array, int offset) throws ParseException {
     int value;
     try {
@@ -34,12 +34,12 @@ public final class ByteFormats {
     value |= getUnsignedByte(array, offset + 1);
     return value;
   }
-  
+
   public static void putU15(int value, byte[] array, int offset) throws ParseException {
     if (value < 0 || value > 0x7FFF) {
       throw new ParseException("Value out of bounds for U15: " + value);
     }
-    
+
     array[offset] = (byte) ((value & 0x7F00) >> 8);
     array[offset + 1] = (byte) (value & 0xFF);
   }
@@ -55,16 +55,16 @@ public final class ByteFormats {
     }
     return (b1 << 8) | b2;
   }
-  
+
   public static void writeU15(int value, RandomAccessFile file) throws IOException, ParseException {
     if (value < 0 || value > 0x7FFF) {
       throw new ParseException("Value out of bounds for U15: " + value);
     }
-    
+
     file.write(value >> 8);
     file.write(value & 0x7F);
   }
-  
+
   public static int getU31(byte[] array, int offset) throws ParseException {
     int value;
     try {
@@ -88,7 +88,7 @@ public final class ByteFormats {
     array[offset + 2] = (byte) ((value & 0xFF00) >> 8);
     array[offset + 3] = (byte) (value & 0xFF);
   }
-  
+
   public static int varintBinarySize(long value) {
     if (-64L < value && value < 64L && value != -1) { // 6 bits
       return 1;
@@ -112,7 +112,7 @@ public final class ByteFormats {
       return -1;
     }
   }
-  
+
   public static long readVarint(RandomAccessFile file) throws IOException, ParseException {
     long value = 0L;
     for (int pieces = 0; pieces < 9; pieces += 1) {
@@ -134,7 +134,7 @@ public final class ByteFormats {
     }
     throw new ParseException("Overlong varint");
   }
-  
+
   public static void writeVarint(long value, RandomAccessFile file)
       throws IOException, ParseException {
     if (value == 0) {
@@ -145,7 +145,7 @@ public final class ByteFormats {
     if (size == -1) {
       throw new ParseException("Varint value out of bounds");
     }
-    
+
     byte[] varint = new byte[size];
     if (value < 0) {
       varint[size - 1] = 1;
@@ -158,7 +158,7 @@ public final class ByteFormats {
     }
     file.write(varint);
   }
-  
+
   public static int stringBinarySize(String string) {
     int size = measureStringLength(string);
     size += varintBinarySize((long) size);
@@ -193,11 +193,11 @@ public final class ByteFormats {
     stringLengthCache.put(string, size);
     return size;
   }
-  
+
   public static String readString(RandomAccessFile file) throws IOException, ParseException {
     int size = (int) readVarint(file);
     StringBuilder str = new StringBuilder(size);
-    
+
     int pos = 0;
     /** @see https://www.fileformat.info/info/unicode/utf8.htm */
     while (pos < size) {
@@ -266,17 +266,17 @@ public final class ByteFormats {
       }
       throw new ParseException("Malformed UTF-8 initial byte");
     }
-    
+
     String string = str.toString();
     stringLengthCache.put(string, size);
     return string;
   }
-  
+
   public static void writeString(String string, RandomAccessFile file)
       throws IOException, ParseException {
     int size = measureStringLength(string);
     writeVarint((long) size, file);
-    
+
     /** @see https://www.fileformat.info/info/unicode/utf8.htm */
     byte[] buf = new byte[4];
     Iterator<Integer> codePoints = string.codePoints().iterator();

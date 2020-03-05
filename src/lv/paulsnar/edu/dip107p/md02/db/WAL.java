@@ -18,11 +18,11 @@ class WAL implements AutoCloseable {
     void handleEdit(int sequence, Tuple tuple);
     void handleDelete(int sequence, int id);
   }
-  
+
   private RandomAccessFile file = null;
   private FileLock lock;
   private int sequence = 0;
-  
+
   public WAL(String directory) throws IOException {
     File path = new File(directory, "database.wal");
     file = new RandomAccessFile(path, "rw");
@@ -87,7 +87,7 @@ class WAL implements AutoCloseable {
     file.seek(0);
     file.write(header);
   }
-  
+
   void replay(ReplayHandler handler) throws IOException {
     file.seek(HEADER_SIZE);
 
@@ -100,7 +100,7 @@ class WAL implements AutoCloseable {
       }
     }
   }
-  
+
   void truncate() throws IOException {
     file.setLength(HEADER_SIZE);
     sequence = 0;
@@ -108,15 +108,15 @@ class WAL implements AutoCloseable {
     writeHeader();
     file.seek(HEADER_SIZE);
   }
-  
+
   private WALRow readRow() throws IOException {
     return WALRow.readFrom(file);
   }
-  
+
   void append(WALRow.Op operation, Tuple tuple) throws IOException {
     WALRow row;
-    if (operation == WALRow.Op.DELETE) { 
-      row = WALRow.delete(sequence, tuple.id);    
+    if (operation == WALRow.Op.DELETE) {
+      row = WALRow.delete(sequence, tuple.id);
     } else {
       row = new WALRow(operation, sequence, tuple);
     }

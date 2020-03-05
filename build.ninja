@@ -1,0 +1,27 @@
+out-dir = bin
+src-dir = src
+pkg = lv/paulsnar/edu/dip107p/md02
+
+rule javac
+  command = javac -d $out-dir/ --class-path $out-dir/ -implicit:none $
+     --source-path $src-dir/ $in
+
+build $out-dir/$pkg/Main.class: javac $src-dir/$pkg/Main.java
+build $out-dir/$pkg/db/AlreadyOpenException.class: $
+  javac $src-dir/$pkg/db/AlreadyOpenException.java
+build $out-dir/$pkg/db/BadValueException.class: $
+  javac $src-dir/$pkg/db/BadValueException.java
+build $out-dir/$pkg/db/Database.class: $
+  javac $src-dir/$pkg/db/Database.java
+build $out-dir/$pkg/db/Tuple.class: $
+  javac $src-dir/$pkg/db/Tuple.java
+build $out-dir/$pkg/db/ValueType.class: $
+  javac $src-dir/$pkg/db/ValueType.java
+build $out-dir/$pkg/db/WAL.class: $
+  javac $src-dir/$pkg/db/WAL.java
+build $out-dir/$pkg/db/WALRow.class: $
+  javac $src-dir/$pkg/db/WALRow.java
+build $out-dir/$pkg/util/ByteFormats.class: $
+  javac $src-dir/$pkg/util/ByteFormats.java
+build $out-dir/$pkg/util/ParseException.class: $
+  javac $src-dir/$pkg/util/ParseException.java
