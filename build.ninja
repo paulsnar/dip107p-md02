@@ -11,17 +11,35 @@ build $out-dir/$pkg/db/AlreadyOpenException.class: $
   javac $src-dir/$pkg/db/AlreadyOpenException.java
 build $out-dir/$pkg/db/BadValueException.class: $
   javac $src-dir/$pkg/db/BadValueException.java
-build $out-dir/$pkg/db/Database.class: $
+build $out-dir/$pkg/db/BinaryString.class: $
+  javac $src-dir/$pkg/db/BinaryString.java
+build $out-dir/$pkg/db/Database.class $out-dir/$pkg/db/Database$$1.class: $
   javac $src-dir/$pkg/db/Database.java
-build $out-dir/$pkg/db/Tuple.class: $
-  javac $src-dir/$pkg/db/Tuple.java
-build $out-dir/$pkg/db/ValueType.class: $
+build $out-dir/$pkg/db/Freelist.class: $
+  javac $src-dir/$pkg/db/Freelist.java
+build $out-dir/$pkg/db/MalformedDatabaseException.class: $
+  javac $src-dir/$pkg/db/MalformedDatabaseException.java
+build $out-dir/$pkg/db/MalformedValueException.class: $
+  javac $src-dir/$pkg/db/MalformedValueException.java
+build $out-dir/$pkg/db/PageBoundaryExceededException.class: $
+  javac $src-dir/$pkg/db/PageBoundaryExceededException.java
+build $out-dir/$pkg/db/Page.class: $
+  javac $src-dir/$pkg/db/Page.java
+build $out-dir/$pkg/db/Record.class: $
+  javac $src-dir/$pkg/db/Record.java
+build $out-dir/$pkg/db/RecordPage.class: $
+  javac $src-dir/$pkg/db/RecordPage.java
+build $out-dir/$pkg/db/SkipTable.class: $
+  javac $src-dir/$pkg/db/SkipTable.java
+build $out-dir/$pkg/db/ValueOutOfBoundsException.class: $
+  javac $src-dir/$pkg/db/ValueOutOfBoundsException.java
+build $out-dir/$pkg/db/ValueReaderInterface.class: $
+  javac $src-dir/$pkg/db/ValueReaderInterface.java
+build $out-dir/$pkg/db/ValueReadWriter.class: $
+  javac $src-dir/$pkg/db/ValueReadWriter.java
+build $out-dir/$pkg/db/ValueWriterInterface.class: $
+  javac $src-dir/$pkg/db/ValueWriterInterface.java
+build $out-dir/$pkg/db/ValueType.class $out-dir/$pkg/db/ValueType$$Kind.class: $
   javac $src-dir/$pkg/db/ValueType.java
-build $out-dir/$pkg/db/WAL.class: $
-  javac $src-dir/$pkg/db/WAL.java
-build $out-dir/$pkg/db/WALRow.class: $
-  javac $src-dir/$pkg/db/WALRow.java
-build $out-dir/$pkg/util/ByteFormats.class: $
-  javac $src-dir/$pkg/util/ByteFormats.java
-build $out-dir/$pkg/util/ParseException.class: $
-  javac $src-dir/$pkg/util/ParseException.java
+build $out-dir/$pkg/db/Varint.class: $
+  javac $src-dir/$pkg/db/Varint.java

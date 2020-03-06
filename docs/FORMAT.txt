@@ -20,7 +20,7 @@ Global header:
   - index skiptable qpage u15
   - first freelist page u31
 
-Semipages refer to 256-byte regions of the file, i.e., they need not be aligned
+Qpages refer to 256-byte regions of the file, i.e., they need not be aligned
 on page boundaries.
 
 # Skiptables
@@ -28,7 +28,7 @@ Header: (length u15)
 Length is specified in qpages (256 byte chunks).
 
 Record skiptable entry: (id u31, page u31)
-Index skiptable entry: (term u15, peek u15, page u31)
+Index skiptable entry: (term u7, peek byte[3], page u31)
 
 Skiptable entries are ordered by their data. The index peek is used for most
 significant bits or first four bytes of the term value in case the term spans
@@ -36,19 +36,20 @@ multiple pages, but it shouldn't be repeated multiple times.
 
 # Freelists
 Header: (count u15, reserved u15, previous u31, next u31)
-count concerns only the current page.
+count concerns only the current page. previous and next are page indices, which
+may be null.
 
 Contents: (page u31)*
-If a page is removed from the skiplist, a further entry should be written in its
+If a page is removed from the freelist, a further entry should be written in its
 place, or the entry should be overwritten by zeroes. If a freelist page becomes
 empty, it should be itself freed up, and its successor linked to its parent.
 
 # Record page
-No header.
+Header: (numrecords u15)
 
 Record: (length u15, reserved u7, flags u7, id u31, valuetype*)
 
-The length doesn't include itself, but does include the reserved and id fields.
+The length doesn't include itself or the header, only the valuetype fields.
 
 Flags: RRRRRRRs lsb
               |
