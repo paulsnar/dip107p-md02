@@ -1,136 +1,187 @@
 package lv.paulsnar.edu.dip107p.md02.db;
 
 import java.io.IOException;
+import java.lang.ref.WeakReference;
+
+import lv.paulsnar.edu.dip107p.md02.db.RecordPage.BorrowInfo;
+import lv.paulsnar.edu.dip107p.md02.db.RecordPage.StringStub;
 
 public class Record {
-  public static class Header {
-    static final int FLAG_IS_SCRUBBED = 1 << 0;
-    static final int BINARY_SIZE = 8;
+  int id = -1;
+  int offset = -1;
+  private WeakReference<RecordPage> parentPage = null;
+  private String authorSurname = null;
+  private String authorName = null;
+  private String bookTitle = null;
 
-    public int length;
-    public boolean isScrubbed;
-    public int id;
+  StringStub authorSurnameStub = null;
+  StringStub authorNameStub = null;
+  StringStub bookTitleStub = null;
+  BorrowInfo borrowInfo = null;
 
-    public static Header readFrom(Page page)
-        throws PageBoundaryExceededException, IOException {
-      int length = page.readU15();
-      int reservedAndFlags = page.readU15();
-      int flags = reservedAndFlags & 0xFF;
-      int id = page.readU31();
-
-      return new Header(length, flags, id);
-    }
-
-    Header(int length, int flags, int id) {
-      this.length = length;
-      this.id = id;
-
-      this.isScrubbed = (flags & FLAG_IS_SCRUBBED) != 0;
-    }
-
-    public void writeTo(Page page) throws IOException {
-      page.writeU15(length);
-      page.write(0);
-      int flags = 0;
-      if (isScrubbed) {
-        flags |= FLAG_IS_SCRUBBED;
-      }
-      page.write(flags);
-      page.writeU31(id);
-    }
+  Record(RecordPage parentPage, int id, StringStub authorSurnameStub,
+      StringStub authorNameStub, StringStub bookTitleStub,
+      BorrowInfo borrowInfo) {
+    this.parentPage = new WeakReference<>(parentPage);
+    this.id = id;
+    this.authorSurnameStub = authorSurnameStub;
+    this.authorNameStub = authorNameStub;
+    this.bookTitleStub = bookTitleStub;
+    this.borrowInfo = borrowInfo;
   }
-
-  public static Record readFrom(Page page)
-      throws PageBoundaryExceededException, IOException {
-    Header header = Header.readFrom(page);
-    return readFrom(page, header);
-  }
-
-  public static Record readFrom(Page page, Header header)
-      throws PageBoundaryExceededException, IOException {
-    if (header.isScrubbed) {
-      page.skip(header.length);
-      return null;
-    }
-
-    try {
-      String authorSurname = ValueType.readFrom(page).stringValue();
-      String authorName = ValueType.readFrom(page).stringValue();
-      String bookTitle = ValueType.readFrom(page).stringValue();
-      boolean isInShelf = ValueType.readFrom(page).booleanValue();
-      Record record;
-      if ( ! isInShelf) {
-        String holderId = ValueType.readFrom(page).stringValue();
-        int returnYear = ValueType.readFrom(page).intValue();
-        int returnMonth = ValueType.readFrom(page).intValue();
-        int returnDay = ValueType.readFrom(page).intValue();
-        record = new Record(authorSurname, authorName, bookTitle,
-          holderId, returnYear, returnMonth, returnDay);
-      } else {
-        record = new Record(authorSurname, authorName, bookTitle);
-      }
-      record.header = header;
-      return record;
-    } catch (BadValueException exc) {
-      throw new MalformedDatabaseException(
-        "Invalid record content type", page.position(), exc);
-    }
-  }
-
-  public Header header = null;
-  public String authorSurname = null, authorName = null, bookTitle = null;
-  public boolean isInShelf = true;
-  public String holderId = null;
-  public int returnYear = -1, returnMonth = -1, returnDay = -1;
 
   public Record(String authorSurname, String authorName, String bookTitle) {
     this.authorSurname = authorSurname;
     this.authorName = authorName;
     this.bookTitle = bookTitle;
-    isInShelf = true;
+    authorSurnameStub = new StringStub(authorSurname);
+    authorNameStub = new StringStub(authorName);
+    bookTitleStub = new StringStub(bookTitle);
   }
 
   public Record(String authorSurname, String authorName, String bookTitle,
-      String holderId, int returnYear, int returnMonth, int returnDay) {
+      String borrowerId, int returnYear, int returnMonth, int returnDay) {
     this(authorSurname, authorName, bookTitle);
-    isInShelf = false;
-    this.holderId = holderId;
-    this.returnYear = returnYear;
-    this.returnMonth = returnMonth;
-    this.returnDay = returnDay;
+    borrowInfo = new BorrowInfo(true, new StringStub(borrowerId),
+        returnYear, returnMonth, returnDay);
   }
 
-  public int binarySize() {
-    int size = Header.BINARY_SIZE + ValueType.sizeOf(authorSurname) +
-      ValueType.sizeOf(authorName) + ValueType.sizeOf(bookTitle) +
-      ValueType.sizeOf(isInShelf);
-    if ( ! isInShelf) {
-      size += ValueType.sizeOf(holderId) +
-        ValueType.sizeOf(returnYear) + ValueType.sizeOf(returnMonth) +
-        ValueType.sizeOf(returnDay);
-    }
-    return size;
+  @Override
+  public int hashCode() {
+    final int prime = 31;
+    int result = 1;
+    result = prime * result + id;
+    return result;
   }
 
-  public void writeTo(Page page)
-      throws ValueOutOfBoundsException, IOException {
-    if (header == null) {
-      throw new IllegalStateException("Cannot write out a headerless record, " +
-        "please synthesize a header first");
-    }
+  @Override
+  public boolean equals(Object obj) {
+    if (this == obj)
+      return true;
+    if (obj == null)
+      return false;
+    if (getClass() != obj.getClass())
+      return false;
+    Record other = (Record) obj;
+    if (id != other.id)
+      return false;
+    return true;
+  }
 
-    header.length = this.binarySize();
-
-    header.writeTo(page);
-    ValueType.writeTo(authorSurname, page);
-    ValueType.writeTo(authorName, page);
-    ValueType.writeTo(bookTitle, page);
-    ValueType.writeTo(isInShelf, page);
-    if ( ! isInShelf) {
-      ValueType.writeTo(holderId, page);
-      ValueType.writeTo(returnYear, page);
-      ValueType.writeTo(returnMonth, page);
-      ValueType.writeTo(returnDay, page);
+  public void persist() throws IOException {
+    RecordPage page = parentPage.get();
+    if (page == null) {
+      throw new RuntimeException(
+          "Lost track of parent page, or none was specified.");
     }
+    page.updateRecord(this);
+  }
+  public void persist(RecordPageFile file) throws IOException {
+    try {
+      persist();
+    } catch (RuntimeException exc) {
+      file.appendRecord(this);
+    }
+  }
+  void persist(RecordPage page) throws IOException {
+    page.appendRecord(this);
+    if (parentPage == null) {
+      parentPage = new WeakReference<>(page);
+    }
+  }
+
+  public String authorSurname() throws IOException {
+    if (authorSurname != null) {
+      return authorSurname;
+    }
+    return authorSurname = authorSurnameStub.read();
+  }
+  public void authorSurname(String value) {
+    authorSurname = value;
+  }
+
+  public String authorName() throws IOException {
+    if (authorName != null) {
+      return authorName;
+    }
+    return authorName = authorNameStub.read();
+  }
+  public void authorName(String value) {
+    authorName = value;
+  }
+
+  public String bookTitle() throws IOException {
+    if (bookTitle != null) {
+      return bookTitle;
+    }
+    return bookTitle = bookTitleStub.read();
+  }
+  public void bookTitle(String value) {
+    bookTitle = value;
+  }
+
+  public boolean isBorrowed() {
+    if (borrowInfo == null) {
+      return false;
+    }
+    return borrowInfo.isBorrowed;
+  }
+  public void isBorrowed(boolean value) {
+    if (borrowInfo == null) {
+      borrowInfo = new BorrowInfo();
+    }
+    borrowInfo.isBorrowed = value;
+  }
+
+  public String borrowerId() throws IOException {
+    if (borrowInfo == null) {
+      return null;
+    }
+    return borrowInfo.borrowerId.read();
+  }
+  public void borrowerId(String value) {
+    if (borrowInfo == null) {
+      borrowInfo = new BorrowInfo();
+    }
+    borrowInfo.borrowerId = new StringStub(value);
+  }
+
+  public int returnYear() {
+    if (borrowInfo == null) {
+      return -1;
+    }
+    return borrowInfo.returnYear;
+  }
+  public void returnYear(int value) {
+    if (borrowInfo == null) {
+      borrowInfo = new BorrowInfo();
+    }
+    borrowInfo.returnYear = value;
+  }
+
+  public int returnMonth() {
+    if (borrowInfo == null) {
+      return -1;
+    }
+    return borrowInfo.returnMonth;
+  }
+  public void returnMonth(int value) {
+    if (borrowInfo == null) {
+      borrowInfo = new BorrowInfo();
+    }
+    borrowInfo.returnMonth = value;
+  }
+
+  public int returnDay() {
+    if (borrowInfo == null) {
+      return -1;
+    }
+    return borrowInfo.returnDay;
+  }
+  public void returnDay(int value) {
+    if (borrowInfo == null) {
+      borrowInfo = new BorrowInfo();
+    }
+    borrowInfo.returnDay = value;
   }
 }

@@ -1,147 +1,320 @@
 package lv.paulsnar.edu.dip107p.md02.db;
 
 import java.io.IOException;
-import java.lang.ref.WeakReference;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.Iterator;
+import java.util.Map;
+import java.util.Set;
+import java.util.WeakHashMap;
 
 class RecordPage {
-  private Page page;
-  private int recordCount;
-  private ArrayList<Integer> offsets, indices;
-  private HashMap<Integer, WeakReference<Record>> recordCache;
+  static class Header {
+    private static final int OCCUPANCY_PATTERN = 0xAA;
+    static final int SIZE = 8;
+
+    Page page;
+    boolean isOccupied;
+    int recordCount;
+    int constantPoolOffset;
+    int firstId;
+    int nextPage = 0;
+
+    private Header(Page page) {
+      this.page = page;
+    }
+
+    static Header readFrom(Page page) throws IOException {
+      Header header = new Header(page);
+
+      page.seek(0);
+      int occupied = page.read();
+      if (occupied != OCCUPANCY_PATTERN) {
+        header.isOccupied = false;
+        return header;
+      }
+
+      header.isOccupied = true;
+      header.recordCount = page.read();
+      header.constantPoolOffset = page.readU15();
+      header.nextPage = page.readU31();
+      header.firstId = page.readU31();
+      page.skip(-BinaryInt.U31_SIZE);
+
+      return header;
+    }
+
+    void write() throws IOException {
+      page.seek(0);
+      if ( ! isOccupied) {
+        page.write(0);
+      } else {
+        page.write(OCCUPANCY_PATTERN);
+        page.write(recordCount);
+        page.writeU15(constantPoolOffset);
+        page.writeU31(nextPage);
+      }
+    }
+  }
+
+  static class StringStub {
+    Page page = null;
+    int offset = -1;
+    private String value = null;
+
+    private StringStub(Page page, int offset) {
+      this.page = page;
+      this.offset = offset;
+    }
+
+    StringStub(String value) {
+      this.value = value;
+    }
+
+    int length() {
+      return BinaryString.byteSize(value);
+    }
+
+    void replaceValue(String newValue) {
+      offset = -1;
+      value = newValue;
+    }
+
+    String read() throws MalformedDatabaseException, IOException {
+      if (value != null) {
+        return value;
+      }
+      value = BinaryString.readFrom(page);
+      return value;
+    }
+
+    void writeTo(Page page) throws IOException {
+      if (offset == -1) {
+        throw new RuntimeException(
+            "Cannot write StringStub with unknown offset");
+      }
+      page.seek(offset);
+      BinaryString.writeTo(value, page);
+      this.page = page;
+    }
+  }
+
+  static class BorrowInfo {
+    boolean isBorrowed = false;
+    StringStub borrowerId = null;
+    int returnYear = -1, returnMonth = -1, returnDay = -1;
+
+    BorrowInfo() { }
+    BorrowInfo(boolean isBorrowed, StringStub borrowerId, int returnYear,
+        int returnMonth, int returnDay) {
+      this.isBorrowed = isBorrowed;
+      this.borrowerId = borrowerId;
+      this.returnYear = returnYear;
+      this.returnMonth = returnMonth;
+      this.returnDay = returnDay;
+    }
+
+    static BorrowInfo readFrom(RecordPage recordPage, Page page)
+        throws IOException {
+      byte[] data = new byte[4];
+      page.readExactly(data);
+      BorrowInfo info = new BorrowInfo();
+      info.isBorrowed = data[0] < 0;
+      int borrowerIdPtr = (data[0] & 0x7F) << 3 | (data[1] & 0xE0) >> 5;
+      info.borrowerId = recordPage.getConstant(borrowerIdPtr);
+      info.returnYear = (data[1] & 0x1F) << 7 | (data[2] & 0xFE) >> 1;
+      info.returnMonth = (data[2] & 0x01) << 3 | (data[3] & 0xE0) >> 5;
+      info.returnDay = data[3] & 0x1F;
+
+      info.returnYear += 2000;
+      info.returnMonth += 1;
+      info.returnDay += 1;
+
+      return info;
+    }
+
+    void writeTo(Page page) throws IOException {
+      byte[] data = new byte[4];
+      if (isBorrowed) {
+        data[0] |= 0x80;
+        int borrowerIdPtr;
+        if (borrowerId == null) {
+          borrowerIdPtr = 0;
+        } else {
+          borrowerIdPtr = borrowerId.offset;
+        }
+        data[0] |= (borrowerIdPtr & 0x3F8) >> 3;
+        data[1] |= (borrowerIdPtr & 0x03) << 5;
+        int year = returnYear - 2000;
+        int month = returnMonth - 1;
+        int day = returnDay - 1;
+        data[1] |= (year & 0xF10) >> 8;
+        data[2] |= (year & 0x7F) << 1;
+        data[2] |= (month & 0x08) >> 1;
+        data[3] |= (month & 0x07) << 5;
+        data[3] |= (day & 0x1F);
+      }
+      page.write(data);
+    }
+  }
+
+  private static final int RECORD_SIZE = 14;
+
+  Header header;
+  Set<Record> recordCache;
+  private Map<Integer, StringStub> constants;
 
   RecordPage(Page page)
       throws MalformedDatabaseException, PageBoundaryExceededException,
       IOException {
-    this.page = page;
-    recordCount = page.readU15();
-
-    offsets = new ArrayList<>(recordCount);
-    indices = new ArrayList<>(recordCount);
-    recordCache = new HashMap<>(recordCount);
-
-    try {
-      for (int i = 0; i < recordCount; i += 1) {
-        offsets.add((int) page.offset());
-        Record.Header header = Record.Header.readFrom(page);
-        indices.add(header.isScrubbed ? -1 : header.id);
-        page.skip(header.length);
-      }
-    } catch (PageBoundaryExceededException exc) {
-      throw new MalformedDatabaseException(
-        "Bad record page header: record count (" + recordCount + ") " +
-        "overflows page", page.position(), exc);
-    }
+    header = Header.readFrom(page);
+    recordCache = Collections.newSetFromMap(new WeakHashMap<Record, Boolean>());
+    constants = new HashMap<>();
   }
 
-  private int indexFor(int id) {
-    for (int i = 0; i < recordCount; i += 1) {
-      if (indices.get(i).intValue() == id) {
-        return i;
-      }
-    }
-    return -1;
+  private int occupiedRecordSpace() {
+    return RECORD_SIZE * header.recordCount;
   }
 
-  public int firstId() {
-    for (int i = 0; i < recordCount; i += 1) {
-      int index = indices.get(i).intValue();
-      if (index != -1) {
-        return index;
-      }
+  private int occupiedConstantSpace() {
+    if (header.constantPoolOffset == 0) {
+      return 0;
     }
-    return -1;
+    return Page.PAGE_SIZE - header.constantPoolOffset;
   }
 
-  public void appendRecord(Record record)
+  private int freeSpace() {
+    int space = Page.PAGE_SIZE;
+    space -= Header.SIZE;
+    space -= occupiedRecordSpace();
+    space -= occupiedConstantSpace();
+    return space;
+  }
+
+  private StringStub getConstant(int offset) {
+    if (constants.containsKey(offset)) {
+      return constants.get(offset);
+    }
+    StringStub stub = new StringStub(header.page, offset);
+    constants.put(offset, stub);
+    return stub;
+  }
+
+  private void allocateConstant(StringStub stub)
       throws PageBoundaryExceededException, IOException {
-    int size = record.binarySize();
-    page.seek(offsets.get(recordCount - 1).intValue());
-    Record.Header header = Record.Header.readFrom(page);
-    page.skip(header.length);
-
-    int offset = (int) page.offset();
-    if ( ! page.ensureSufficientSpace(size)) {
+    int length = stub.length();
+    if (freeSpace() < length) {
       throw new PageBoundaryExceededException();
     }
-    recordCount += 1;
-    record.writeTo(page);
-    offsets.add(offset);
-    indices.add(record.header.id);
+    if (header.constantPoolOffset == 0) {
+      header.constantPoolOffset = Page.PAGE_SIZE;
+    }
+    header.constantPoolOffset -= length;
+    stub.offset = header.constantPoolOffset;
+    stub.writeTo(header.page);
   }
 
-  public List<Record> loadAllRecords()
-      throws MalformedDatabaseException, IOException {
-    List<Record> records = new ArrayList<>(recordCount);
+  Record readRecord() throws IOException {
+    Page page = header.page;
+    long offset = page.offset();
+    int id = page.readU31();
+    if (id < 1) {
+      page.skip(RECORD_SIZE - BinaryInt.U31_SIZE);
+      return null;
+    }
+    StringStub surnameStub = getConstant(page.readU15());
+    StringStub nameStub = getConstant(page.readU15());
+    StringStub titleStub = getConstant(page.readU15());
+    BorrowInfo borrowInfo = BorrowInfo.readFrom(this, page);
+    Record record = new Record(
+        this, id, surnameStub, nameStub, titleStub, borrowInfo);
+    record.offset = (int) offset;
+    return record;
+  }
 
-    for (int i = 0; i < recordCount; i += 1) {
-      page.seek(offsets.get(i).intValue());
-      Record record = Record.readFrom(page);
-      if (record != null) {
-        records.add(record);
-        indices.set(i, record.header.id);
-      } else {
-        indices.set(i, -1);
-      }
+  private void writeRecord(Page page, Record record, int offset)
+      throws PageBoundaryExceededException, IOException {
+    if (record.authorSurnameStub.offset == -1) {
+      allocateConstant(record.authorSurnameStub);
+    }
+    if (record.authorNameStub.offset == -1) {
+      allocateConstant(record.authorNameStub);
+    }
+    if (record.bookTitleStub.offset == -1) {
+      allocateConstant(record.bookTitleStub);
+    }
+    if (record.borrowInfo == null) {
+      record.borrowInfo = new BorrowInfo();
+    }
+    if (record.borrowInfo.borrowerId != null &&
+        record.borrowInfo.borrowerId.offset == -1) {
+      allocateConstant(record.borrowInfo.borrowerId);
     }
 
-    return records;
+    if (freeSpace() < RECORD_SIZE) {
+      throw new PageBoundaryExceededException();
+    }
+
+    page.seek(offset);
+    page.writeU31(record.id);
+    page.writeU15(record.authorSurnameStub.offset);
+    page.writeU15(record.authorNameStub.offset);
+    page.writeU15(record.bookTitleStub.offset);
+    record.borrowInfo.writeTo(page);
   }
 
-  public Record loadRecord(int id)
-      throws MalformedDatabaseException, IOException {
-    if (recordCache.containsKey(id)) {
-      Record record = recordCache.get(id).get();
-      if (record == null) {
-        recordCache.remove(id);
-      } else {
+  private Record findCachedRecord(int id) {
+    Iterator<Record> iter = recordCache.iterator();
+    while (iter.hasNext()) {
+      Record record = iter.next();
+      if (record.id == id) {
         return record;
       }
     }
+    return null;
+  }
 
-    int index = indexFor(id);
-    if (index == -1) {
-      return null;
+  private Record loadRecord(int id) throws IOException {
+    Page page = header.page;
+    page.seek(Header.SIZE);
+    for (int i = 0; i < header.recordCount; i += 1) {
+      int tupleId = page.readU31();
+      if (tupleId == id) {
+        page.skip(-BinaryInt.U31_SIZE);
+        Record record = readRecord();
+        recordCache.add(record);
+        return record;
+      }
     }
+    return null;
+  }
 
-    page.seek(offsets.get(index));
-    Record record = Record.readFrom(page);
-    if (record != null) {
-      recordCache.put(record.header.id, new WeakReference<>(record));
-    } else {
-      indices.set(index, -1);
+  Record getRecord(int id) throws IOException {
+    Record record = null;
+    record = findCachedRecord(id);
+    if (record == null) {
+      record = loadRecord(id);
     }
     return record;
   }
 
-  public void scrubRecord(int id) throws IOException {
-    int index = indexFor(id);
-    if (index == -1) {
-      return;
-    }
-
-    page.seek(offsets.get(index));
-    Record.Header header = Record.Header.readFrom(page);
-    header.isScrubbed = true;
-    page.seek(offsets.get(index));
-    header.writeTo(page);
-    indices.set(index, -1);
-
-    if (recordCache.containsKey(id)) {
-      recordCache.remove(id);
-    }
+  void appendRecord(Record record)
+      throws PageBoundaryExceededException, IOException {
+    Page page = header.page;
+    int offset = Header.SIZE + RECORD_SIZE * header.recordCount;
+    writeRecord(page, record, offset);
+    header.isOccupied = true;
+    header.recordCount += 1;
+    record.offset = offset;
+    header.write();
   }
 
-  public void vacuum() throws ValueOutOfBoundsException, IOException {
-    List<Record> records = loadAllRecords();
-
-    page.rewind();
-    page.writeU15(records.size());
-
-    for (int i = 0, l = records.size(); i < l; i += 1) {
-      records.get(i).writeTo(page);
+  void updateRecord(Record record) throws IOException {
+    if (record.offset == -1) {
+      throw new RuntimeException("Record has no known location on page");
     }
+
+    writeRecord(header.page, record, record.offset);
+    header.write();
   }
 }

@@ -1,106 +1,41 @@
-# Database file layout:
-- page 0
-  - global header
-  - record skiptable
-  - index skiptable
-- freelist
-- record pages
-- index pages
+# Datafile layout
+- magic (f0 9f 93 96 "data")
+- top sequence u31
+- skiplist [64]
+  - id u31
+  - page u31
 
-All non-varint integers are big endian and unsigned. The top bit is never set.
-A page refers to a 1024-byte (1k) region of the file. No content can overflow
-between pages, except for indices which can be partially split.
+# Page header
+- occupancy pattern 0xAA
+- record count u8
+- constant pool offset u15 (relative to page start)
+- next page u31
 
-Global header:
-  - magic char[4]
-  - topmost sequence u31
-  - record page count u31
-  - index page count u31
-  - record skiptable qpage u15
-  - index skiptable qpage u15
-  - first freelist page u31
-
-Qpages refer to 256-byte regions of the file, i.e., they need not be aligned
-on page boundaries.
-
-# Skiptables
-Header: (length u15)
-Length is specified in qpages (256 byte chunks).
-
-Record skiptable entry: (id u31, page u31)
-Index skiptable entry: (term u7, peek byte[3], page u31)
-
-Skiptable entries are ordered by their data. The index peek is used for most
-significant bits or first four bytes of the term value in case the term spans
-multiple pages, but it shouldn't be repeated multiple times.
-
-# Freelists
-Header: (count u15, reserved u15, previous u31, next u31)
-count concerns only the current page. previous and next are page indices, which
-may be null.
-
-Contents: (page u31)*
-If a page is removed from the freelist, a further entry should be written in its
-place, or the entry should be overwritten by zeroes. If a freelist page becomes
-empty, it should be itself freed up, and its successor linked to its parent.
-
-# Record page
-Header: (numrecords u15)
-
-Record: (length u15, reserved u7, flags u7, id u31, valuetype*)
-
-The length doesn't include itself or the header, only the valuetype fields.
-
-Flags: RRRRRRRs lsb
-              |
-               \- the record is scrubbed and should be ignored
-
-
-If a significant proportion of the page is being taken up by scrubbed records,
-it should be vacuumed, e.g., its contents, sans the scrubbed records, copied to
-a free page and the page itself added to the freelist.
-
-# Index page
-Header:
-- term u15
-- count u15
-- previous u31
-- next u31
-
-Index entry:
-- term value (string or varint, depending on the term)
+# Record format
 - id u31
+- author_surname p16
+- author_name p16
+- book_title p16
+- borrow_info byte[4]
 
-# Varint
+If id < 1, the record is scrubbed and should be ignored.
+The string constants from the record and borrow info are offsets into the page
+itself.
 
-00000001 --> 0
-0abcdefs --> (+/- s) [abcdef]
-1abcdefg 0hijklms --> (+/- s) [abcdefghijklm]
-1abcdefg 1hijklmn 0opqrts --> (+/- s) [abcdefghijklmnopqrt]
-(etc, up to 9 contiguous bytes or 62 bits of precision)
+Borrow info:
+ 0 1 2 3 4 5 6 7 8 9 a b c d e f
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|B| borrower ID (p10) | epochyr |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+| epochyr cnt | month |  date   |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 
-# Valuetype:
-- type u7
-- data byte[]
+B - borrowed bit (1 if not in shelf)
+borrower ID - pointer into constant table
+epochyear - 12-bit unsigned offset since 2000
+month - 1..12 (and a bit more)
+date - 1..31 (and a bit more)
 
-type == 1 --> NULL
-        2 --> FALSE
-        3 --> TRUE
-        4 --> string (binlength varint, symbols byte[])
-        5 --> varint
-
-# WAL log:
-- magic char[8]
-- rowcount u31
-- reserved u31
-- rows:
-  - operation type u15
-  - sequence u15
-  - record or id (varint)
-
-operation type == 1 --> insert
-                  2 --> edit
-                  3 --> delete
-
-For types 1 or 2, the row data is the record itself; for 3, it's the deleted
-ID.
+# Constant pool format
+- length varint
+- data char[length]

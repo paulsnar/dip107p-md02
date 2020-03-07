@@ -2,8 +2,9 @@ package lv.paulsnar.edu.dip107p.md02.db;
 
 import java.io.IOException;
 
-class MalformedValueException extends IOException
-{
+class MalformedValueException extends IOException {
+  private static final long serialVersionUID = -5007557726760996455L;
+
   public MalformedValueException() {
     super();
   }

@@ -18,11 +18,19 @@ class Page implements ValueReaderInterface, ValueWriterInterface {
 
   public static Page append(ValueReadWriter file) throws IOException {
     long currentSize = file.length();
-    currentSize += PAGE_SIZE - (currentSize % PAGE_SIZE);
+    if (currentSize % PAGE_SIZE != 0) {
+      currentSize += PAGE_SIZE - (currentSize % PAGE_SIZE);
+    }
     file.seek(currentSize);
     file.write(zeroes);
 
     return new Page(currentSize / PAGE_SIZE, file);
+  }
+  public static Page openAndWipe(int number, ValueReadWriter file)
+      throws IOException {
+    file.seek(number * PAGE_SIZE);
+    file.write(zeroes);
+    return new Page(number, file);
   }
 
   private void setPosition(ValueReadWriter file) throws IOException {
@@ -39,7 +47,7 @@ class Page implements ValueReaderInterface, ValueWriterInterface {
   }
 
   public boolean ensureSufficientSpace(int length) {
-    return position + length < PAGE_SIZE;
+    return position + length <= PAGE_SIZE;
   }
 
   private ValueReadWriter getFile() throws IOException {
@@ -51,15 +59,18 @@ class Page implements ValueReaderInterface, ValueWriterInterface {
     return file;
   }
 
+  @Override
   public long length() {
     return PAGE_SIZE;
   }
 
+  @Override
   public void rewind() throws IOException {
     position = 0;
     getFile(); // seeks implicitly
   }
 
+  @Override
   public void seek(long offset) throws IOException {
     if (offset < 0 || offset > PAGE_SIZE) {
       throw new RuntimeException("Cannot seek page outside its boundaries");
@@ -68,10 +79,12 @@ class Page implements ValueReaderInterface, ValueWriterInterface {
     getFile(); // seeks implicitly
   }
 
+  @Override
   public void skip(long amount) throws IOException {
     seek(position + amount);
   }
 
+  @Override
   public long position() {
     return number * PAGE_SIZE + position;
   }
@@ -79,6 +92,7 @@ class Page implements ValueReaderInterface, ValueWriterInterface {
     return position;
   }
 
+  @Override
   public int read() throws PageBoundaryExceededException, IOException {
     guardPosition(1);
     int value = getFile().read();
@@ -86,6 +100,7 @@ class Page implements ValueReaderInterface, ValueWriterInterface {
     return value;
   }
 
+  @Override
   public int read(byte[] buffer) throws PageBoundaryExceededException, IOException {
     guardPosition(buffer.length);
     getFile().readExactly(buffer);
@@ -93,6 +108,7 @@ class Page implements ValueReaderInterface, ValueWriterInterface {
     return buffer.length;
   }
 
+  @Override
   public int read(byte[] buffer, int start, int length)
       throws PageBoundaryExceededException, IOException {
     guardPosition(length);
@@ -101,30 +117,35 @@ class Page implements ValueReaderInterface, ValueWriterInterface {
     return length;
   }
 
+  @Override
   public void readExactly(byte[] buffer)
       throws PageBoundaryExceededException, IOException {
     read(buffer);
   }
 
+  @Override
   public void readExactly(byte[] buffer, int start, int length)
       throws PageBoundaryExceededException, IOException {
     read(buffer, start, length);
   }
 
+  @Override
   public int readU15() throws PageBoundaryExceededException, IOException {
-    guardPosition(ValueReadWriter.U15_SIZE);
+    guardPosition(BinaryInt.U15_SIZE);
     int value = getFile().readU15();
-    position += ValueReadWriter.U15_SIZE;
+    position += BinaryInt.U15_SIZE;
     return value;
   }
 
+  @Override
   public int readU31() throws PageBoundaryExceededException, IOException {
-    guardPosition(ValueReadWriter.U31_SIZE);
+    guardPosition(BinaryInt.U31_SIZE);
     int value = getFile().readU31();
-    position += ValueReadWriter.U31_SIZE;
+    position += BinaryInt.U31_SIZE;
     return value;
   }
 
+  @Override
   public void write(int value)
       throws PageBoundaryExceededException, IOException {
     guardPosition(1);
@@ -132,20 +153,23 @@ class Page implements ValueReaderInterface, ValueWriterInterface {
     position += 1;
   }
 
+  @Override
   public void writeU15(int value)
       throws PageBoundaryExceededException, IOException {
-    guardPosition(ValueReadWriter.U15_SIZE);
+    guardPosition(BinaryInt.U15_SIZE);
     getFile().writeU15(value);
-    position += ValueReadWriter.U15_SIZE;
+    position += BinaryInt.U15_SIZE;
   }
 
+  @Override
   public void writeU31(int value)
       throws PageBoundaryExceededException, IOException {
-    guardPosition(ValueReadWriter.U31_SIZE);
+    guardPosition(BinaryInt.U31_SIZE);
     getFile().writeU31(value);
-    position += ValueReadWriter.U31_SIZE;
+    position += BinaryInt.U31_SIZE;
   }
 
+  @Override
   public void write(byte[] data)
       throws PageBoundaryExceededException, IOException {
     guardPosition(data.length);
@@ -153,10 +177,20 @@ class Page implements ValueReaderInterface, ValueWriterInterface {
     position += data.length;
   }
 
+  @Override
   public void write(byte[] data, int offset, int length)
       throws PageBoundaryExceededException, IOException {
     guardPosition(length);
     getFile().write(data, offset, length);
     position += length;
+  }
+
+  public void writeTo(ValueReadWriter target) throws IOException {
+    seek(0);
+    byte[] buf = new byte[PAGE_SIZE / 8];
+    for (int i = 0; i < 8; i += 1) {
+      readExactly(buf);
+      target.write(buf);
+    }
   }
 }

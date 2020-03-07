@@ -1,23 +1,18 @@
 package lv.paulsnar.edu.dip107p.md02;
 
-import java.io.IOException;
+import java.io.File;
 
-import lv.paulsnar.edu.dip107p.md02.db.Database;
-import lv.paulsnar.edu.dip107p.md02.db.Tuple;
+import lv.paulsnar.edu.dip107p.md02.db.Record;
+import lv.paulsnar.edu.dip107p.md02.db.RecordPageFile;
 
 public class Main {
   public static void main(String[] args) {
-    try (Database db = new Database(".")) {
-      System.out.println("Opened database!");
-      System.in.read();
-
-      Tuple t = new Tuple(0, "Skalbe", "Kārlis", "Kaķīša dzirnaviņas");
-      db.appendEntry(t);
-      System.out.println("Appended entry!");
-      System.in.read();
-    } catch (IOException exc) {
-      System.err.println("Something went wrong :/");
-      exc.printStackTrace(System.err);
+    File f = new File("database.dat");
+    try (RecordPageFile file = new RecordPageFile(f)) {
+      Record record = new Record("Skalbe", "Kārlis", "Kaķīša dzirnaviņas");
+      record.persist(file);
+    } catch (Exception exc) {
+      exc.printStackTrace();
     }
   }
 }

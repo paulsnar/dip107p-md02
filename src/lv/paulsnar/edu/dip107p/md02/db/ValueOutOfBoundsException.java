@@ -1,7 +1,8 @@
 package lv.paulsnar.edu.dip107p.md02.db;
 
-class ValueOutOfBoundsException extends RuntimeException
-{
+class ValueOutOfBoundsException extends RuntimeException {
+  private static final long serialVersionUID = -4094061244602509859L;
+
   public ValueOutOfBoundsException() {
     super();
   }

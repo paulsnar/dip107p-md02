@@ -1,10 +1,8 @@
 package lv.paulsnar.edu.dip107p.md02.db;
 
 import java.io.IOException;
-import java.io.RandomAccessFile;
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;
-import lv.paulsnar.edu.dip107p.md02.util.ByteFormats;
 
 class Freelist {
   private static final int HEADER_SIZE = 12;

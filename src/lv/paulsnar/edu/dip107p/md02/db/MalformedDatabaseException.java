@@ -3,6 +3,8 @@ package lv.paulsnar.edu.dip107p.md02.db;
 import java.io.IOException;
 
 public class MalformedDatabaseException extends IOException {
+  private static final long serialVersionUID = -5893782353056271893L;
+
   public MalformedDatabaseException() {
     super();
   }

@@ -7,9 +7,6 @@ import java.io.RandomAccessFile;
 class ValueReadWriter
     implements AutoCloseable, ValueReaderInterface, ValueWriterInterface {
 
-  static final int U15_SIZE = 2;
-  static final int U31_SIZE = 4;
-
   private RandomAccessFile file;
   private long cursor = 0;
   private byte[] scratch = new byte[8];
