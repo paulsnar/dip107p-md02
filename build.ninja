@@ -17,6 +17,7 @@ build $out-dir/$pkg/ui/DeleteState.class: javac $src-dir/$pkg/ui/DeleteState.jav
 build $out-dir/$pkg/ui/EditState.class: javac $src-dir/$pkg/ui/EditState.java
 build $out-dir/$pkg/ui/ListingPrinter.class: javac $src-dir/$pkg/ui/ListingPrinter.java
 build $out-dir/$pkg/ui/ListingSorter.class: javac $src-dir/$pkg/ui/ListingSorter.java
-build $out-dir/$pkg/ui/StateExecutor.class: javac $src-dir/$pkg/ui/StateExecutor.java
+build $out-dir/$pkg/ui/SearchState.class: javac $src-dir/$pkg/ui/SearchState.java
 build $out-dir/$pkg/ui/State.class: javac $src-dir/$pkg/ui/State.java
+build $out-dir/$pkg/ui/StateExecutor.class: javac $src-dir/$pkg/ui/StateExecutor.java
 build $out-dir/$pkg/ui/UserDialogue.class: javac $src-dir/$pkg/ui/UserDialogue.java

@@ -224,7 +224,48 @@ final public class UserDialogue implements AutoCloseable {
     }
     checkoutState.run(state, scanner);
   }
-  private void processMenuSearch(String input) {}
+  private void processMenuSearch(String input) {
+    SearchState.Criterion criterion = null;
+    String criterionValue = null;
+
+    String[] tokens = input.split("\\s+");
+    String command = tokens[0];
+    if (command.length() > 1) {
+      char criterionType = command.charAt(1);
+      if (criterionType == 'a') {
+        criterion = SearchState.Criterion.AUTHOR;
+      } else if (criterionType == 'n') {
+        criterion = SearchState.Criterion.TITLE;
+      } else {
+        System.out.printf(
+          "-- Meklēšanas kritērijs %c nav atpazīts.%n", criterionType);
+      }
+    }
+    if (tokens.length > 1) {
+      String[] criterionValuePieces = new String[tokens.length - 1];
+      for (int i = 1; i < tokens.length; i += 1) {
+        criterionValuePieces[i - 1] = tokens[i];
+      }
+      criterionValue = String.join(" ", criterionValuePieces);
+    }
+
+    SearchState searchState;
+    if (criterion != null) {
+      searchState = new SearchState(criterion, criterionValue);
+    } else {
+      searchState = new SearchState();
+    }
+
+    searchState.run(state, scanner);
+
+    List<Book> books = searchState.results;
+    if (books == null) {
+      return;
+    }
+    ListingSorter.sortByDefault(books);
+    state.currentListing = new ListingPrinter(books);
+    printList();
+  }
 
   private void printReport() {
     int checkedOut = 0, inShelf = 0;
