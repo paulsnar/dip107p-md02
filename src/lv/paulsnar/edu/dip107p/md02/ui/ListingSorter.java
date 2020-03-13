@@ -38,6 +38,9 @@ final class ListingSorter {
         if (result == 0) {
           result = o1.author.name.compareTo(o2.author.name);
         }
+        if (result == 0) {
+          result = o1.title.compareTo(o2.title);
+        }
         return result * direction.value;
       }
       default:

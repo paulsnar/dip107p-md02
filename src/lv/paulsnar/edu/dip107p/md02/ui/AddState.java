@@ -4,15 +4,13 @@ import java.util.Scanner;
 
 import lv.paulsnar.edu.dip107p.md02.Book;
 
-public final class AddState implements StateExecutor {
-  @SuppressWarnings("serial")
+final class AddState implements StateExecutor {
   private static class InterruptedException extends RuntimeException { }
 
   private Book newBook = new Book();
   private boolean infinite = true;
 
   AddState() {
-
   }
   AddState(String bookId) {
     newBook.id = bookId;
@@ -23,8 +21,8 @@ public final class AddState implements StateExecutor {
   public void run(State state, Scanner sc) {
     System.out.println(
         "-- Atstājiet jebkuru lauku tukšu, lai atceltu/pārtrauktu.");
-    System.out.println();
     do {
+      System.out.println();
       try {
         if (newBook.id == null) {
           System.out.print("Grāmatas numurs: ");
@@ -47,6 +45,10 @@ public final class AddState implements StateExecutor {
   }
 
   private static String readLine(Scanner sc) throws InterruptedException {
+    if ( ! sc.hasNextLine()) {
+      System.out.println();
+      throw new InterruptedException();
+    }
     String line = sc.nextLine();
     if (line.length() == 0) {
       throw new InterruptedException();

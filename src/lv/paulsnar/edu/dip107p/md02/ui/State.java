@@ -4,7 +4,7 @@ import lv.paulsnar.edu.dip107p.md02.Book;
 import lv.paulsnar.edu.dip107p.md02.BookDatabase;
 
 class State {
-  static enum Type { VOID, INIT, MENU, LIST, ADD, DONE }
+  static enum Type { VOID, INIT, MENU, ADD, EDIT, DONE }
 
   public Type type = Type.VOID;
   public Book currentBook = null;

@@ -33,11 +33,20 @@ final public class UserDialogue implements AutoCloseable {
       state.type = State.Type.MENU;
     }
     while ( ! state.isDone()) {
-      if (state.type == State.Type.LIST) {
-        printList();
+      if (state.currentListing != null) {
+        System.out.print("+> ");
+      } else {
+        System.out.print("> ");
       }
-      System.out.print("> ");
+      if ( ! scanner.hasNextLine()) {
+        System.out.println("q");
+        doQuit();
+        break;
+      }
       String input = scanner.nextLine();
+      if (state.currentListing == null && input.length() == 0) {
+        continue;
+      }
       processCommandLine(input);
     }
   }
@@ -54,11 +63,12 @@ final public class UserDialogue implements AutoCloseable {
     System.out.print(
       "[p] apskatīt grāmatas  [s] meklēt grāmatas  [h] palīdzība \n"
     + "[a] pievienot  [e] rediģēt  [d] dzēst  [c] izņemt/atgriezt \n"
-    + (state.type == State.Type.LIST ? "[l] lappuse  " : "")
+    + (state.currentListing != null ? "[l] lappuse  " : "")
     + "[?] komandu saraksts  [q] iziet\n");
   }
 
   private void printList() {
+    System.out.println();
     state.currentListing.print();
     if ( ! state.currentListing.hasMore()) {
       state.currentListing = null;
@@ -67,10 +77,14 @@ final public class UserDialogue implements AutoCloseable {
   }
 
   private void processCommandLine(String input) {
+    if (state.currentListing != null &&
+        (input.length() == 0 || input.charAt(0) == 'l')) {
+      printList();
+      return;
+    }
+
     char action = input.charAt(0);
-    if (state.type == State.Type.LIST && action == 'l') {
-      // print next listing page
-    } else if (action == 'p') {
+    if (action == 'p') {
       processMenuPrint(input);
     } else if (action == 'a') {
       processMenuAdd(input);
@@ -89,8 +103,7 @@ final public class UserDialogue implements AutoCloseable {
     } else if (action == 'q') {
       doQuit();
     } else {
-      System.out.println(
-          "Neatpazīta darbība: " + action + ". Lūdzu, mēģiniet vēlreiz.");
+      System.out.println("Neatpazīta komanda: " + action);
     }
   }
 
@@ -106,7 +119,7 @@ final public class UserDialogue implements AutoCloseable {
         sortDirection = ListingSorter.SortDirection.DESC;
       } else {
         System.out.println(
-            "-- Kārtošanas veids " + direction + " nav atpazīts.");
+            "-- Kārtošanas virziens " + direction + " nav atpazīts.");
       }
     }
     if (input.length() > 1) {
@@ -136,8 +149,8 @@ final public class UserDialogue implements AutoCloseable {
       ListingSorter.sortByDefault(books);
     }
 
-    state.type = State.Type.LIST;
     state.currentListing = new ListingPrinter(books);
+    printList();
   }
   private void processMenuAdd(String input) {
     String[] tokens = input.split("\\s+");
@@ -150,7 +163,21 @@ final public class UserDialogue implements AutoCloseable {
     state.type = State.Type.ADD;
     addState.run(state, scanner);
   }
-  private void processMenuEdit(String input) {}
+  private void processMenuEdit(String input) {
+    String[] tokens = input.split("\\s+");
+    EditState editState;
+    if (tokens.length > 1) {
+      String[] books = new String[tokens.length - 1];
+      for (int i = 1; i < tokens.length; i += 1) {
+        books[i - 1] = tokens[i];
+      }
+      editState = new EditState(books);
+    } else {
+      editState = new EditState();
+    }
+    state.type = State.Type.EDIT;
+    editState.run(state, scanner);
+  }
   private void processMenuDelete(String input) {}
   private void processMenuCheckout(String input) {}
   private void processMenuSearch(String input) {}
