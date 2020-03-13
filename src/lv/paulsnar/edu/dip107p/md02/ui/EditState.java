@@ -1,6 +1,5 @@
 package lv.paulsnar.edu.dip107p.md02.ui;
 
-import java.util.List;
 import java.util.Scanner;
 
 import lv.paulsnar.edu.dip107p.md02.Book;
@@ -69,7 +68,6 @@ final class EditState implements StateExecutor {
         break;
       }
     }
-    state.type = State.Type.MENU;
   }
 
   private static String readLine(Scanner sc) throws InterruptedException {

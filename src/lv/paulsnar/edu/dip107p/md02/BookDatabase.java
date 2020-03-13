@@ -64,6 +64,10 @@ final public class BookDatabase implements AutoCloseable {
     books.put(book.id, book);
   }
 
+  public void remove(String id) {
+    books.remove(id);
+  }
+
   public Book get(String id) {
     return books.get(id);
   }

@@ -41,7 +41,6 @@ final class AddState implements StateExecutor {
         break;
       }
     } while (infinite);
-    state.type = State.Type.MENU;
   }
 
   private static String readLine(Scanner sc) throws InterruptedException {

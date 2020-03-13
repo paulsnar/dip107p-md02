@@ -8,9 +8,12 @@ rule javac
 build $out-dir/$pkg/Book.class: javac $src-dir/$pkg/Book.java
 build $out-dir/$pkg/BookDatabase.class: javac $src-dir/$pkg/BookDatabase.java
 build $out-dir/$pkg/DatabaseAlreadyOpenException.class: javac $src-dir/$pkg/DatabaseAlreadyOpenException.java
+build $out-dir/$pkg/DateFormatException.class: javac $src-dir/$pkg/DateFormatException.java
 build $out-dir/$pkg/Main.class: javac $src-dir/$pkg/Main.java
 build $out-dir/$pkg/MalformedDatabaseException.class: javac $src-dir/$pkg/MalformedDatabaseException.java
 build $out-dir/$pkg/ui/AddState.class: javac $src-dir/$pkg/ui/AddState.java
+build $out-dir/$pkg/ui/CheckoutState.class: javac $src-dir/$pkg/ui/CheckoutState.java
+build $out-dir/$pkg/ui/DeleteState.class: javac $src-dir/$pkg/ui/DeleteState.java
 build $out-dir/$pkg/ui/EditState.class: javac $src-dir/$pkg/ui/EditState.java
 build $out-dir/$pkg/ui/ListingPrinter.class: javac $src-dir/$pkg/ui/ListingPrinter.java
 build $out-dir/$pkg/ui/ListingSorter.class: javac $src-dir/$pkg/ui/ListingSorter.java

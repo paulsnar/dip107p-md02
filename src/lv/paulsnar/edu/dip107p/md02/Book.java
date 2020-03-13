@@ -27,7 +27,14 @@ final public class Book {
     static final DateFormat ISO8601 = new SimpleDateFormat("yyyy-LL-dd");
     public String holderId;
     public Calendar returnDate;
-
+    public CheckoutInfo() {
+      holderId = null;
+      returnDate = null;
+    }
+    public CheckoutInfo(String holderId, Calendar returnDate) {
+      this.holderId = holderId;
+      this.returnDate = returnDate;
+    }
     public String returnDateIso8601() {
       return ISO8601.format(returnDate.getTime());
     }

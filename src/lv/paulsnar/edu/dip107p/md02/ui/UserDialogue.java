@@ -23,16 +23,15 @@ final public class UserDialogue implements AutoCloseable {
   @Override
   public void close() {
     scanner.close();
-    state.type = State.Type.VOID;
   }
 
   public void run() throws IOException {
-    if (state.type == State.Type.VOID) {
+    if ( ! state.isInitialized) {
       printHeader();
       printCommandList();
-      state.type = State.Type.MENU;
+      state.isInitialized = true;
     }
-    while ( ! state.isDone()) {
+    while ( ! state.isDone) {
       if (state.currentListing != null) {
         System.out.print("+> ");
       } else {
@@ -72,7 +71,6 @@ final public class UserDialogue implements AutoCloseable {
     state.currentListing.print();
     if ( ! state.currentListing.hasMore()) {
       state.currentListing = null;
-      state.type = State.Type.MENU;
     }
   }
 
@@ -160,7 +158,6 @@ final public class UserDialogue implements AutoCloseable {
     } else {
       addState = new AddState(tokens[1]);
     }
-    state.type = State.Type.ADD;
     addState.run(state, scanner);
   }
   private void processMenuEdit(String input) {
@@ -175,11 +172,55 @@ final public class UserDialogue implements AutoCloseable {
     } else {
       editState = new EditState();
     }
-    state.type = State.Type.EDIT;
     editState.run(state, scanner);
   }
-  private void processMenuDelete(String input) {}
-  private void processMenuCheckout(String input) {}
+  private void processMenuDelete(String input) {
+    String[] tokens = input.split("\\s+");
+    DeleteState deleteState;
+    if (tokens.length > 1) {
+      String[] books = new String[tokens.length - 1];
+      for (int i = 1; i < tokens.length; i += 1) {
+        books[i - 1] = tokens[i];
+      }
+      deleteState = new DeleteState(books);
+    } else {
+      deleteState = new DeleteState();
+    }
+    deleteState.run(state, scanner);
+  }
+  private void processMenuCheckout(String input) {
+    String[] tokens = input.split("\\s+");
+    CheckoutState checkoutState = null;
+    if (tokens[0].length() > 1) {
+      char type = tokens[0].charAt(1);
+      if (type == 'i') {
+        String[] books = new String[tokens.length - 1];
+        for (int i = 1; i < tokens.length; i += 1) {
+          books[i - 1] = tokens[i];
+        }
+        checkoutState = new CheckoutState(books);
+      } else if (type == 'o') {
+        if (tokens.length < 4) {
+          System.out.println("-- Nepietiekami daudz argumentu izņemšanai.");
+        } else {
+          String holderId = tokens[1];
+          String returnDate = tokens[2];
+          String[] books = new String[tokens.length - 3];
+          for (int i = 3; i < tokens.length; i += 1) {
+            books[i - 3] = tokens[i];
+          }
+          checkoutState = new CheckoutState(holderId, returnDate, books);
+        }
+      } else {
+        System.out.printf(
+          "-- Grāmatas atzīmes veids '%c' nav atpazīts.\n", type);
+      }
+    }
+    if (checkoutState == null) {
+      checkoutState = new CheckoutState();
+    }
+    checkoutState.run(state, scanner);
+  }
   private void processMenuSearch(String input) {}
 
   private void printHelp() {
@@ -270,7 +311,7 @@ final public class UserDialogue implements AutoCloseable {
 
   private void doQuit() {
     System.out.println("Visu labu!");
-    state.type = State.Type.DONE;
+    state.isDone = true;
   }
 
 }
