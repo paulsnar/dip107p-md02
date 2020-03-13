@@ -21,12 +21,32 @@ final class AddState implements StateExecutor {
   public void run(State state, Scanner sc) {
     System.out.println(
         "-- Atstājiet jebkuru lauku tukšu, lai atceltu/pārtrauktu.");
+
+    Book idConflict = null;
+    if (newBook.id != null && (idConflict = state.db.get(newBook.id)) != null) {
+      System.out.printf(
+            "-- Brīdinājums: Grāmata ar šādu numuru jau ir reģistrēta."
+        + "%n   %s (%s, %s)"
+        + "%n   Lai izmantotu šo pašu numuru (%s), otra grāmata papriekš ir"
+        + "%n   jāizdzēš. Citādi lūdzam izmantot citu numuru šai grāmatai."
+        + "%n",
+        idConflict.title, idConflict.author.surname, idConflict.author.name,
+        newBook.id);
+      newBook.id = null;
+    }
+
     do {
       System.out.println();
       try {
-        if (newBook.id == null) {
+        while (newBook.id == null) {
           System.out.print("Grāmatas numurs: ");
           newBook.id = readLine(sc);
+          if ((idConflict = state.db.get(newBook.id)) != null) {
+            System.out.printf("-- Šāds numurs jau ir reģistrēts: %s (%s, %s)%n",
+              idConflict.title, idConflict.author.surname,
+              idConflict.author.name);
+            newBook.id = null;
+          }
         }
         System.out.print("Autora uzvārds: ");
         newBook.author.surname = readLine(sc);
