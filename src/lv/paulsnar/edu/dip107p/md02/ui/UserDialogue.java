@@ -2,6 +2,7 @@ package lv.paulsnar.edu.dip107p.md02.ui;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Scanner;
 
@@ -63,7 +64,7 @@ final public class UserDialogue implements AutoCloseable {
       "[p] apskatīt grāmatas  [s] meklēt grāmatas  [h] palīdzība \n"
     + "[a] pievienot  [e] rediģēt  [d] dzēst  [c] izņemt/atgriezt \n"
     + (state.currentListing != null ? "[l] lappuse  " : "")
-    + "[?] komandu saraksts  [q] iziet\n");
+    + "[r] atskaite  [?] komandu saraksts  [q] iziet\n");
   }
 
   private void printList() {
@@ -94,6 +95,8 @@ final public class UserDialogue implements AutoCloseable {
       processMenuCheckout(input);
     } else if (action == 's') {
       processMenuSearch(input);
+    } else if (action == 'r') {
+      printReport();
     } else if (action == 'h') {
       printHelp();
     } else if (action == '?') {
@@ -222,6 +225,22 @@ final public class UserDialogue implements AutoCloseable {
     checkoutState.run(state, scanner);
   }
   private void processMenuSearch(String input) {}
+
+  private void printReport() {
+    int checkedOut = 0, inShelf = 0;
+    List<Book> books = state.db.getAll();
+    Iterator<Book> iterator = books.iterator();
+    while (iterator.hasNext()) {
+      Book book = iterator.next();
+      if (book.checkoutInfo == null) {
+        inShelf += 1;
+      } else {
+        checkedOut += 1;
+      }
+    }
+    System.out.printf("-- Grāmatas plauktā: %d, izņemtas: %s%n",
+      inShelf, checkedOut);
+  }
 
   private void printHelp() {
     System.out.print("--- Palīdzība ---\n"
