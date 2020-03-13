@@ -83,7 +83,7 @@ final public class Book {
     if (checkoutInfo == null) {
       target.writeBoolean(false);
     } else {
-      target.writeBoolean(false);
+      target.writeBoolean(true);
       target.writeUTF(checkoutInfo.holderId);
       target.writeShort(checkoutInfo.returnDate.get(Calendar.YEAR));
       target.writeShort(checkoutInfo.returnDate.get(Calendar.DAY_OF_YEAR));
