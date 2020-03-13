@@ -5,10 +5,10 @@ import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.nio.channels.FileLock;
 import java.util.Arrays;
-import java.util.HashSet;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Set;
+import java.util.Map;
 
 final public class BookDatabase implements AutoCloseable {
   private static final byte[] HEADER_MAGIC = {
@@ -19,7 +19,7 @@ final public class BookDatabase implements AutoCloseable {
   private RandomAccessFile file;
   private FileLock lock;
 
-  private Set<Book> books;
+  private Map<String, Book> books;
 
   BookDatabase(File path) throws IOException {
     file = new RandomAccessFile(path, "rw");
@@ -40,17 +40,18 @@ final public class BookDatabase implements AutoCloseable {
     }
 
     int entryCount = file.readInt();
-    books = new HashSet<>(entryCount);
+    books = new HashMap<>(entryCount);
 
     for (int i = 0; i < entryCount; i += 1) {
-      books.add(Book.readFrom(file));
+      Book book = Book.readFrom(file);
+      books.put(book.id, book);
     }
   }
 
   private void initFile() throws IOException {
     file.write(HEADER_MAGIC);
     file.writeInt(0);
-    books = new HashSet<>();
+    books = new HashMap<>();
   }
 
   @Override
@@ -60,7 +61,11 @@ final public class BookDatabase implements AutoCloseable {
   }
 
   public void add(Book book) {
-    books.add(book);
+    books.put(book.id, book);
+  }
+
+  public Book get(String id) {
+    return books.get(id);
   }
 
   public int entryCount() {
@@ -71,7 +76,7 @@ final public class BookDatabase implements AutoCloseable {
     file.seek(0);
     file.write(HEADER_MAGIC);
     file.writeInt(books.size());
-    Iterator<Book> iterator = books.iterator();
+    Iterator<Book> iterator = books.values().iterator();
     while (iterator.hasNext()) {
       iterator.next().writeTo(file);
     }
@@ -79,6 +84,6 @@ final public class BookDatabase implements AutoCloseable {
   }
 
   public List<Book> getAll() {
-    return List.copyOf(books);
+    return List.copyOf(books.values());
   }
 }
