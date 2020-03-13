@@ -1,5 +1,4 @@
 /bin/
-/database.wal
 /database.dat
-/database.dat-swp
+/main.jar
 .ninja_*
