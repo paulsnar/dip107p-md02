@@ -56,40 +56,6 @@ final public class Book {
     this.checkoutInfo = null;
   }
 
-  public static Book readFrom(DataInput source) throws IOException {
-    Book book = new Book();
-    book.id = source.readUTF();
-    book.author.surname = source.readUTF();
-    book.author.name = source.readUTF();
-    book.title = source.readUTF();
-    if (source.readBoolean()) {
-      book.checkoutInfo = new CheckoutInfo();
-      book.checkoutInfo.holderId = source.readUTF();
-      Calendar returnDate = Calendar.getInstance();
-      returnDate.set(Calendar.YEAR, source.readShort());
-      returnDate.set(Calendar.DAY_OF_YEAR, source.readShort());
-      book.checkoutInfo.returnDate = returnDate;
-    } else {
-      book.checkoutInfo = null;
-    }
-    return book;
-  }
-
-  public void writeTo(DataOutput target) throws IOException {
-    target.writeUTF(id);
-    target.writeUTF(author.surname);
-    target.writeUTF(author.name);
-    target.writeUTF(title);
-    if (checkoutInfo == null) {
-      target.writeBoolean(false);
-    } else {
-      target.writeBoolean(true);
-      target.writeUTF(checkoutInfo.holderId);
-      target.writeShort(checkoutInfo.returnDate.get(Calendar.YEAR));
-      target.writeShort(checkoutInfo.returnDate.get(Calendar.DAY_OF_YEAR));
-    }
-  }
-
   @Override
   public boolean equals(Object obj) {
     if ( ! (obj instanceof Book)) {

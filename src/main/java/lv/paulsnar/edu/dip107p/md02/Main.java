@@ -2,6 +2,7 @@ package lv.paulsnar.edu.dip107p.md02;
 
 import java.io.File;
 
+import lv.paulsnar.edu.dip107p.md02.db.Database;
 import lv.paulsnar.edu.dip107p.md02.ui.UserDialogue;
 
 public final class Main {
@@ -10,7 +11,7 @@ public final class Main {
   public static final String VERSION = "0.1.0";
 
   private static int main() {
-    try (BookDatabase db = new BookDatabase(new File("database.dat"))) {
+    try (Database db = new Database(new File("database.dat"))) {
       try (UserDialogue dialogue = new UserDialogue(db)) {
         dialogue.run();
       }

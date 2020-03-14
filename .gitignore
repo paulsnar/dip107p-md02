@@ -1,4 +1,4 @@
-/bin/
 /database.dat
-/main.jar
-.ninja_*
+/target/
+.*.swp
+.DS_Store

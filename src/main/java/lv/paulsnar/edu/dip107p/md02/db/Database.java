@@ -1,5 +1,6 @@
-package lv.paulsnar.edu.dip107p.md02;
+package lv.paulsnar.edu.dip107p.md02.db;
 
+import java.io.EOFException;
 import java.io.File;
 import java.io.IOException;
 import java.io.RandomAccessFile;
@@ -10,40 +11,48 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
-final public class BookDatabase implements AutoCloseable {
+import lv.paulsnar.edu.dip107p.md02.Book;
+
+final public class Database implements AutoCloseable {
   private static final byte[] HEADER_MAGIC = {
       (byte) 0xF0, (byte) 0x9F, (byte) 0x93, (byte) 0x96,
       'd', 'a', 't', 'a',
   };
 
-  private RandomAccessFile file;
+  private DataFile file;
   private FileLock lock;
 
+  private BookPersister bookPersister = new BookPersister();
   private Map<String, Book> books;
 
-  BookDatabase(File path) throws IOException {
-    file = new RandomAccessFile(path, "rw");
-    lock = file.getChannel().tryLock();
-    if (lock == null) {
-      file.close();
-      throw new DatabaseAlreadyOpenException();
+  public Database(File path) throws IOException {
+    {
+      RandomAccessFile file = new RandomAccessFile(path, "rw");
+      lock = file.getChannel().tryLock();
+      if (lock == null) {
+        file.close();
+        throw new DatabaseAlreadyOpenException();
+      }
+
+      this.file = new DataFile(file);
     }
 
     byte[] header = new byte[8];
-    int read = file.read(header);
-    if (read == -1) {
+    try {
+      file.readFully(header);
+      if ( ! Arrays.equals(HEADER_MAGIC, header)) {
+        throw new MalformedDatabaseException("Header magic mismatch");
+      }
+    } catch (EOFException exc) {
       initFile();
       return;
-    }
-    if ( ! Arrays.equals(HEADER_MAGIC, header)) {
-      throw new MalformedDatabaseException("Header magic mismatch");
     }
 
     int entryCount = file.readInt();
     books = new HashMap<>(entryCount);
 
     for (int i = 0; i < entryCount; i += 1) {
-      Book book = Book.readFrom(file);
+      Book book = bookPersister.readFrom(file);
       books.put(book.id, book);
     }
   }
@@ -82,9 +91,9 @@ final public class BookDatabase implements AutoCloseable {
     file.writeInt(books.size());
     Iterator<Book> iterator = books.values().iterator();
     while (iterator.hasNext()) {
-      iterator.next().writeTo(file);
+      bookPersister.writeTo(file, iterator.next());
     }
-    file.setLength(file.getFilePointer());
+    file.length(file.position());
   }
 
   public List<Book> getAll() {

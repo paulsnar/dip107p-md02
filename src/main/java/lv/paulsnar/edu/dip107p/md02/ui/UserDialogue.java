@@ -7,8 +7,8 @@ import java.util.List;
 import java.util.Scanner;
 
 import lv.paulsnar.edu.dip107p.md02.Book;
-import lv.paulsnar.edu.dip107p.md02.BookDatabase;
 import lv.paulsnar.edu.dip107p.md02.Main;
+import lv.paulsnar.edu.dip107p.md02.db.Database;
 
 final public class UserDialogue implements AutoCloseable {
 
@@ -16,7 +16,7 @@ final public class UserDialogue implements AutoCloseable {
   private State state = new State();
 //  private StateExecutor executor = null;
 
-  public UserDialogue(BookDatabase db) {
+  public UserDialogue(Database db) {
     scanner = new Scanner(System.in);
     state.db = db;
   }
