@@ -1,8 +1,5 @@
 package lv.paulsnar.edu.dip107p.md02;
 
-import java.io.DataInput;
-import java.io.DataOutput;
-import java.io.IOException;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;

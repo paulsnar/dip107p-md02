@@ -137,13 +137,10 @@ class HelpMessages {
   + "uzreiz izvēlnē norādot papildu argumentus pie komandas.\n";
 
   private static class CommandHelpData {
-    public char command;
     public String title;
     public String summary;
     public String handbook;
-    public CommandHelpData(
-        char command, String title, String summary, String handbook) {
-      this.command = command;
+    public CommandHelpData(String title, String summary, String handbook) {
       this.title = title;
       this.summary = summary;
       this.handbook = handbook;
@@ -154,26 +151,28 @@ class HelpMessages {
     helpData = new HashMap<>(8);
 
     helpData.put('p',
-      new CommandHelpData('p', PRINT_TITLE, PRINT_SUMMARY, PRINT_HANDBOOK));
+      new CommandHelpData(PRINT_TITLE, PRINT_SUMMARY, PRINT_HANDBOOK));
     helpData.put('a',
-      new CommandHelpData('a', ADD_TITLE, ADD_SUMMARY, ADD_HANDBOOK));
+      new CommandHelpData(ADD_TITLE, ADD_SUMMARY, ADD_HANDBOOK));
     helpData.put('e',
-      new CommandHelpData('e', EDIT_TITLE, EDIT_SUMMARY, EDIT_HANDBOOK));
+      new CommandHelpData(EDIT_TITLE, EDIT_SUMMARY, EDIT_HANDBOOK));
     helpData.put('d',
-      new CommandHelpData('d', DELETE_TITLE, DELETE_SUMMARY, DELETE_HANDBOOK));
-    helpData.put('c', new CommandHelpData('c',
+      new CommandHelpData(DELETE_TITLE, DELETE_SUMMARY, DELETE_HANDBOOK));
+    helpData.put('c', new CommandHelpData(
       CHECKMOD_TITLE, CHECKMOD_SUMMARY, CHECKMOD_HANDBOOK));
     helpData.put('s',
-      new CommandHelpData('s', SEARCH_TITLE, SEARCH_SUMMARY, SEARCH_HANDBOOK));
+      new CommandHelpData(SEARCH_TITLE, SEARCH_SUMMARY, SEARCH_HANDBOOK));
+    helpData.put('r',
+      new CommandHelpData(REPORT_TITLE, REPORT_SUMMARY, REPORT_HANDBOOK));
 
-    CommandHelpData helpHelpData = new CommandHelpData('h',
+    CommandHelpData helpHelpData = new CommandHelpData(
       HELP_TITLE, HELP_SUMMARY, HELP_HANDBOOK);
     helpData.put('h', helpHelpData);
     helpData.put('?', helpHelpData);
   }
 
   private static final char[] commandOrder =
-    {'p', 'a', 'e', 'd', 'c', 's', 'h'};
+    {'p', 'a', 'e', 'd', 'c', 's', 'r', 'h'};
 
   public static void printHelp() {
     System.out.println(HANDBOOK_PROLOGUE);

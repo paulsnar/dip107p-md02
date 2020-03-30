@@ -5,7 +5,9 @@ import java.util.Scanner;
 import lv.paulsnar.edu.dip107p.md02.Book;
 
 final class AddState implements StateExecutor {
-  private static class InterruptedException extends RuntimeException { }
+  private static class InterruptedException extends RuntimeException {
+    private static final long serialVersionUID = 6538650527376634342L;
+  }
 
   private Book newBook = new Book();
   private boolean infinite = true;

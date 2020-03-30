@@ -5,6 +5,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.nio.channels.FileLock;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -97,6 +98,6 @@ final public class Database implements AutoCloseable {
   }
 
   public List<Book> getAll() {
-    return List.copyOf(books.values());
+    return new ArrayList<>(books.values());
   }
 }

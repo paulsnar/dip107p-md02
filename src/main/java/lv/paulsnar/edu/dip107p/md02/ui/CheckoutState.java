@@ -1,8 +1,6 @@
 package lv.paulsnar.edu.dip107p.md02.ui;
 
 import java.util.Calendar;
-import java.util.List;
-import java.util.LinkedList;
 import java.util.Scanner;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -19,8 +17,6 @@ final class CheckoutState implements StateExecutor {
   private String holderId = null;
   private Calendar returnDate = null;
   private String[] ids = null;
-
-  private List<Book> books;
 
   public CheckoutState() {
   }

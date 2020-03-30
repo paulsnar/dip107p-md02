@@ -5,9 +5,10 @@ import java.util.Scanner;
 import lv.paulsnar.edu.dip107p.md02.Book;
 
 final class EditState implements StateExecutor {
-  private static class InterruptedException extends RuntimeException { }
+  private static class InterruptedException extends RuntimeException {
+    private static final long serialVersionUID = -1996168216196826537L;
+  }
 
-  private Book currentBook = null;
   private String[] ids = null;
 
   EditState() {

@@ -3,6 +3,7 @@ package lv.paulsnar.edu.dip107p.md02;
 import java.io.File;
 
 import lv.paulsnar.edu.dip107p.md02.db.Database;
+import lv.paulsnar.edu.dip107p.md02.db.DatabaseAlreadyOpenException;
 import lv.paulsnar.edu.dip107p.md02.ui.UserDialogue;
 
 public final class Main {
