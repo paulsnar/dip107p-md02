@@ -212,7 +212,12 @@ final public class UserDialogue implements AutoCloseable {
           for (int i = 3; i < tokens.length; i += 1) {
             books[i - 3] = tokens[i];
           }
-          checkoutState = new CheckoutState(holderId, returnDate, books);
+          try {
+            checkoutState = new CheckoutState(holderId, returnDate, books);
+          } catch (RuntimeException exc) {
+            System.out.println("-- Nepareizi norādīti izņemšanas argumenti.");
+            return;
+          }
         }
       } else {
         System.out.printf(

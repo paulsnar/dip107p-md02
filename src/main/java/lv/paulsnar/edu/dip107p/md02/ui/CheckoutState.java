@@ -20,7 +20,7 @@ final class CheckoutState implements StateExecutor {
   private Calendar returnDate = null;
   private String[] ids = null;
 
-  private List<Book> books; 
+  private List<Book> books;
 
   public CheckoutState() {
   }
