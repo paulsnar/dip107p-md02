@@ -52,9 +52,13 @@ final public class Database implements AutoCloseable {
     int entryCount = file.readInt();
     books = new HashMap<>(entryCount);
 
-    for (int i = 0; i < entryCount; i += 1) {
-      Book book = bookPersister.readFrom(file);
-      books.put(book.id, book);
+    try {
+      for (int i = 0; i < entryCount; i += 1) {
+        Book book = bookPersister.readFrom(file);
+        books.put(book.id, book);
+      }
+    } catch (IOException exc) {
+      throw new MalformedDatabaseException("Format error");
     }
   }
 
