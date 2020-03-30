@@ -2,7 +2,9 @@ package lv.paulsnar.edu.dip107p.md02.ui;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.Iterator;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Scanner;
 
@@ -276,6 +278,9 @@ final public class UserDialogue implements AutoCloseable {
     int checkedOut = 0, inShelf = 0;
     List<Book> books = state.db.getAll();
     Iterator<Book> iterator = books.iterator();
+    List<Book> overdueBooks = new LinkedList<>();
+    Calendar now = Calendar.getInstance();
+
     while (iterator.hasNext()) {
       Book book = iterator.next();
       if (book.checkoutInfo == null) {
@@ -283,9 +288,21 @@ final public class UserDialogue implements AutoCloseable {
       } else {
         checkedOut += 1;
       }
+
+      if (book.checkoutInfo != null &&
+          now.after(book.checkoutInfo.returnDate)) {
+        overdueBooks.add(book);
+      }
     }
+
     System.out.printf("-- Grāmatas plauktā: %d, izņemtas: %s%n",
       inShelf, checkedOut);
+
+    if (overdueBooks.size() > 0) {
+      System.out.printf("-- Kavētas grāmatas: %d\n", overdueBooks.size());
+      state.currentListing = new ListingPrinter(overdueBooks);
+      printList();
+    }
   }
 
   private void printHelp() {
